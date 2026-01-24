@@ -162,6 +162,3 @@ location / { proxy_pass http://127.0.0.1:17320; }
 - **MySQL connection refused**: use `--network host` or set `MYSQL_HOST=172.17.0.1`.
 - **Redis connection refused**: set `REDIS_HOST=172.17.0.1` or run with host networking.
 
----
-
-If you want auto-generated `config.json` from env at container start, or a Docker Compose setup, just ask.
