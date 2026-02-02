@@ -212,10 +212,12 @@ async def unlock_password_link(
     """Unlock a password-protected link."""
     success, url = LinkService.verify_link_password(db, code.lower(), data.password)
     
+    if not url:
+        # Link doesn't exist
+        raise HTTPException(status_code=404, detail="Link not found")
+    
     if not success:
-        if url is None:
-            # Link doesn't exist
-            raise HTTPException(status_code=404, detail="Link not found")
+        # Wrong password
         raise HTTPException(status_code=401, detail="Incorrect password")
     
     return PasswordUnlockResponse(redirect_url=url)

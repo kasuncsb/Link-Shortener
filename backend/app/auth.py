@@ -115,11 +115,14 @@ def create_api_key(db: Session, name: Optional[str] = None, rate_limit: int = 10
     Create a new API key and store it in the database.
     Returns (plaintext_key, ApiKey model).
     """
+    from .utils import utc_now
+    
     key, key_hash = generate_api_key()
     
     api_key = ApiKey(
         key_hash=key_hash,
         name=name,
+        created_at=utc_now(),
         rate_limit=rate_limit,
         is_active=True
     )

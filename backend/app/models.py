@@ -12,7 +12,7 @@ class Link(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     suffix = Column(String(64), unique=True, nullable=False, index=True)
     destination = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.utc_timestamp())
+    created_at = Column(DateTime(timezone=True), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=True)
     ip_address = Column(String(45), nullable=True)  # IPv6 max length is 45 chars
     
@@ -46,7 +46,7 @@ class ApiKey(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     key_hash = Column(String(64), unique=True, nullable=False, index=True)
     name = Column(String(100), nullable=True)  # Optional friendly name
-    created_at = Column(DateTime(timezone=True), server_default=func.utc_timestamp())
+    created_at = Column(DateTime(timezone=True), nullable=False)
     last_used_at = Column(DateTime(timezone=True), nullable=True)
     rate_limit = Column(Integer, default=1000)  # Requests per hour
     is_active = Column(Boolean, default=True, nullable=False)

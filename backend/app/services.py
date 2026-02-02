@@ -118,6 +118,7 @@ class LinkService:
                 link = Link(
                     suffix=code,
                     destination=original_url,
+                    created_at=utc_now(),
                     expires_at=expires_at,
                     ip_address=creator_ip,
                     password_hash=password_hash,
@@ -277,6 +278,8 @@ class LinkService:
         """
         Verify password for a password-protected link.
         Returns (success, original_url or None).
+        If link exists but password is wrong, returns (False, url).
+        If link doesn't exist, returns (False, None).
         """
         link = db.query(Link).filter(Link.suffix == code).first()
         if not link:
@@ -289,7 +292,8 @@ class LinkService:
         if verify_password(password, link.password_hash):
             return True, link.destination
         
-        return False, None
+        # Password is wrong, but return the URL so caller knows link exists
+        return False, link.destination
     
     @staticmethod
     def bulk_delete_links(db: Session, suffixes: List[str]) -> tuple[int, List[str]]:
