@@ -4,17 +4,29 @@ from typing import cast, Optional
 from datetime import datetime
 
 from .database import get_db
-from .models import Link
+from .models import Link, ApiKey
 from .schemas import (
     ShortenRequest,
     ShortenResponse,
     LinkStatsResponse,
     LinkPreviewResponse,
-    ErrorResponse
+    ErrorResponse,
+    PasswordUnlockRequest,
+    PasswordUnlockResponse,
+    BulkShortenRequest,
+    BulkShortenResponse,
+    BulkShortenResultItem,
+    BulkDeleteRequest,
+    BulkDeleteResponse
 )
 from .services import LinkService
 from .redis_client import RedisService
 from .utils import format_short_url, is_reserved_code
+from .auth import get_optional_api_key
+from .captcha import verify_turnstile, is_turnstile_enabled
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -43,12 +55,42 @@ def get_client_ip(request: Request) -> str:
 async def create_short_link(
     request: Request,
     data: ShortenRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: Optional[ApiKey] = Depends(get_optional_api_key)
 ):
     """Create a new shortened link."""
     client_ip = get_client_ip(request)
     
-    allowed, remaining = RedisService.check_rate_limit(client_ip)
+    # Check rate limit - use API key's rate limit if authenticated
+    if api_key:
+        rate_limit = api_key.rate_limit
+        logger.debug(f"Authenticated request from API key: {api_key.name}")
+    else:
+        rate_limit = None  # Use default rate limit
+        
+        # Verify CAPTCHA for anonymous requests if enabled
+        if is_turnstile_enabled():
+            # Get CAPTCHA token from request body or header
+            captcha_token = getattr(data, 'cf_turnstile_response', None)
+            if not captcha_token:
+                # Also check in extra fields
+                captcha_token = getattr(data, '__pydantic_extra__', {}).get('cf_turnstile_response')
+            
+            if not captcha_token:
+                raise HTTPException(
+                    status_code=400,
+                    detail="CAPTCHA verification required"
+                )
+            
+            is_valid = await verify_turnstile(captcha_token, client_ip)
+            if not is_valid:
+                logger.warning(f"CAPTCHA verification failed for {client_ip}")
+                raise HTTPException(
+                    status_code=400,
+                    detail="CAPTCHA verification failed. Please try again."
+                )
+    
+    allowed, remaining = RedisService.check_rate_limit(client_ip, rate_limit)
     if not allowed:
         raise HTTPException(
             status_code=429,
@@ -61,7 +103,9 @@ async def create_short_link(
         original_url=data.url,
         custom_code=data.custom_code,
         expires_in_days=data.expires_in_days,
-        creator_ip=client_ip
+        creator_ip=client_ip,
+        password=data.password,
+        max_clicks=data.max_clicks
     )
     
     if error:
@@ -75,7 +119,9 @@ async def create_short_link(
         suffix=cast(str, link.suffix),
         original_url=cast(str, link.destination),
         expires_at=cast(Optional[datetime], link.expires_at),
-        created_at=cast(datetime, link.created_at)
+        created_at=cast(datetime, link.created_at),
+        requires_password=link.password_hash is not None,
+        max_clicks=link.max_clicks
     )
 
 
@@ -151,3 +197,106 @@ async def check_code_availability(
         return {"available": False, "reason": "taken"}
     
     return {"available": True}
+
+
+@router.post(
+    "/unlock/{code}",
+    response_model=PasswordUnlockResponse,
+    responses={401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}}
+)
+async def unlock_password_link(
+    code: str,
+    data: PasswordUnlockRequest,
+    db: Session = Depends(get_db)
+):
+    """Unlock a password-protected link."""
+    success, url = LinkService.verify_link_password(db, code.lower(), data.password)
+    
+    if not success:
+        if url is None:
+            # Link doesn't exist
+            raise HTTPException(status_code=404, detail="Link not found")
+        raise HTTPException(status_code=401, detail="Incorrect password")
+    
+    return PasswordUnlockResponse(redirect_url=url)
+
+
+@router.post(
+    "/bulk/shorten",
+    response_model=BulkShortenResponse,
+    responses={400: {"model": ErrorResponse}, 401: {"model": ErrorResponse}}
+)
+async def bulk_shorten(
+    request: Request,
+    data: BulkShortenRequest,
+    db: Session = Depends(get_db),
+    api_key: Optional[ApiKey] = Depends(get_optional_api_key)
+):
+    """Create multiple shortened links in a single request. Requires API key."""
+    if not api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="API key required for bulk operations"
+        )
+    
+    client_ip = get_client_ip(request)
+    results = []
+    success_count = 0
+    error_count = 0
+    
+    for item in data.urls:
+        link, error = LinkService.create_link(
+            db=db,
+            original_url=item.url,
+            custom_code=item.custom_code,
+            expires_in_days=item.expires_in_days,
+            creator_ip=client_ip
+        )
+        
+        if error:
+            results.append(BulkShortenResultItem(
+                success=False,
+                url=item.url,
+                error=error
+            ))
+            error_count += 1
+        else:
+            results.append(BulkShortenResultItem(
+                success=True,
+                url=item.url,
+                short_url=format_short_url(cast(str, link.suffix)),
+                suffix=cast(str, link.suffix)
+            ))
+            success_count += 1
+    
+    logger.info(f"Bulk shorten: {success_count} success, {error_count} errors")
+    return BulkShortenResponse(
+        results=results,
+        success_count=success_count,
+        error_count=error_count
+    )
+
+
+@router.post(
+    "/bulk/delete",
+    response_model=BulkDeleteResponse,
+    responses={401: {"model": ErrorResponse}}
+)
+async def bulk_delete(
+    data: BulkDeleteRequest,
+    db: Session = Depends(get_db),
+    api_key: Optional[ApiKey] = Depends(get_optional_api_key)
+):
+    """Delete multiple links by their suffixes. Requires API key."""
+    if not api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="API key required for bulk operations"
+        )
+    
+    deleted_count, not_found = LinkService.bulk_delete_links(db, data.suffixes)
+    
+    return BulkDeleteResponse(
+        deleted_count=deleted_count,
+        not_found=not_found
+    )

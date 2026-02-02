@@ -4,26 +4,41 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from sqlalchemy.orm import Session
-import logging
 from pathlib import Path
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
 
-from .env import get_env, get_bool
+from .env import get_env, get_bool, get_list, get_bool_optional
 from .database import engine, Base, get_db
 from .routes import router as api_router, get_client_ip
 from .services import LinkService
 from .redis_client import RedisService, redis_client
 from .models import Link
 from .utils import utc_now, normalize_utc
+from .logging_config import setup_logging, get_logger, set_request_id, get_request_id
+from .tasks import task_runner
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Initialize structured logging
+setup_logging()
+logger = get_logger(__name__)
 
 PUBLIC_DIR = Path(__file__).resolve().parents[2] / "frontend" / "public"
+
+
+class RequestIdMiddleware(BaseHTTPMiddleware):
+    """Middleware to add request ID to each request for tracing."""
+    
+    async def dispatch(self, request: Request, call_next):
+        # Get or generate request ID
+        request_id = request.headers.get("X-Request-ID")
+        rid = set_request_id(request_id)
+        
+        # Process request
+        response = await call_next(request)
+        
+        # Add request ID to response headers
+        response.headers["X-Request-ID"] = rid
+        return response
 
 
 @asynccontextmanager
@@ -88,9 +103,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to rebuild Redis cache from DB: {e}")
     
+    # Start background cleanup tasks
+    task_runner.start()
+    
     yield
     
     # Shutdown
+    task_runner.stop()
     logger.info("Shutting down Link Shortener API...")
 
 
@@ -134,10 +153,17 @@ async def favicon():
         return FileResponse(icon)
     return JSONResponse(status_code=404, content={"error": "Not found"})
 
-# CORS middleware
+# Request ID middleware for tracing
+app.add_middleware(RequestIdMiddleware)
+
+# CORS middleware - configured via environment
+cors_origins = get_list("CORS_ORIGINS", ["*"])
+if cors_origins == ["*"]:
+    logger.warning("CORS configured to allow all origins. Set CORS_ORIGINS for production.")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

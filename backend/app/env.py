@@ -60,3 +60,40 @@ def get_json_list(key: str) -> list[str]:
     if not isinstance(data, list):
         raise RuntimeError(f"Expected JSON array for env var {key}: {raw}")
     return [str(item) for item in data]
+
+
+def get_env_optional(key: str, default: str = "") -> str:
+    """Get an optional environment variable with a default value."""
+    return os.environ.get(key, default)
+
+
+def get_int_optional(key: str, default: int = 0) -> int:
+    """Get an optional integer environment variable with a default value."""
+    val = os.environ.get(key)
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except ValueError:
+        return default
+
+
+def get_bool_optional(key: str, default: bool = False) -> bool:
+    """Get an optional boolean environment variable with a default value."""
+    val = os.environ.get(key, "").strip().lower()
+    if not val:
+        return default
+    if val in {"1", "true", "yes", "on"}:
+        return True
+    if val in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
+def get_list(key: str, default: list[str] | None = None) -> list[str]:
+    """Get a comma-separated list from environment variable."""
+    val = os.environ.get(key, "")
+    if not val.strip():
+        return default if default is not None else []
+    return [item.strip() for item in val.split(",") if item.strip()]
+

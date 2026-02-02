@@ -1,22 +1,32 @@
 import redis
+from redis.exceptions import RedisError, ConnectionError as RedisConnectionError, TimeoutError as RedisTimeoutError
 from typing import Optional, Any, cast
 from datetime import datetime, timezone
 from .env import get_env, get_int
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
 
 # Redis is required in production; always enable the client
 USE_REDIS = True
 
 # Redis connection pool
-pool = redis.ConnectionPool(
-    host=get_env("REDIS_HOST"),
-    port=get_int("REDIS_PORT"),
-    db=get_int("REDIS_DB"),
-    password=get_env("REDIS_PASSWORD") or None,
-    decode_responses=True,
-    max_connections=20
-)
-
-redis_client = redis.Redis(connection_pool=pool) 
+try:
+    pool = redis.ConnectionPool(
+        host=get_env("REDIS_HOST"),
+        port=get_int("REDIS_PORT"),
+        db=get_int("REDIS_DB"),
+        password=get_env("REDIS_PASSWORD") or None,
+        decode_responses=True,
+        max_connections=20,
+        socket_connect_timeout=5,
+        socket_timeout=5,
+        retry_on_timeout=True
+    )
+    redis_client = redis.Redis(connection_pool=pool)
+except RedisError as e:
+    logger.error(f"Failed to create Redis connection pool: {e}")
+    raise 
 
 
 class RedisService:
@@ -38,38 +48,31 @@ class RedisService:
             # Store as a hash; TTL on the key enforces expiry
             key = f"{RedisService.LINK_CACHE_PREFIX}{code}"
             mapping: dict[str, str] = {"url": url}
-            # Do not store expires_at in the hash payload -- TTL on the key handles expiry
             redis_client.hset(key, mapping=mapping)
-            # Set TTL on the hash to match DB expiry if provided, otherwise persist
-            try:
-                if expires_at:
-                    now = datetime.now(timezone.utc)
-                    # Normalize naive
-                    if getattr(expires_at, "tzinfo", None) is None:
-                        expires_at = expires_at.replace(tzinfo=timezone.utc)
-                    delta = (expires_at - now).total_seconds()
-                    if delta > 0:
-                        ttl = int(min(delta, RedisService.CACHE_TTL))
-                        redis_client.expire(key, ttl)
-                    else:
-                        # expired: don't set the key
-                        redis_client.delete(key)
-                        return False
+            
+            # Set TTL on the hash to match DB expiry if provided
+            if expires_at:
+                now = datetime.now(timezone.utc)
+                # Normalize naive datetime
+                if getattr(expires_at, "tzinfo", None) is None:
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+                delta = (expires_at - now).total_seconds()
+                if delta > 0:
+                    ttl = int(min(delta, RedisService.CACHE_TTL))
+                    redis_client.expire(key, ttl)
                 else:
-                    # No DB expiry -> keep persistent in Redis
-                    try:
-                        redis_client.persist(key)
-                    except Exception:
-                        # If persist not supported or fails, set a default TTL
-                        redis_client.expire(key, RedisService.CACHE_TTL)
-            except Exception:
-                # Fall back to default TTL on any error
-                try:
-                    redis_client.expire(key, RedisService.CACHE_TTL)
-                except Exception:
-                    pass
+                    # Already expired: don't cache
+                    redis_client.delete(key)
+                    return False
+            else:
+                # No DB expiry -> keep persistent in Redis
+                redis_client.persist(key)
             return True
-        except Exception:
+        except (RedisConnectionError, RedisTimeoutError) as e:
+            logger.warning(f"Redis connection error caching link {code}: {e}")
+            return False
+        except RedisError as e:
+            logger.error(f"Redis error caching link {code}: {e}")
             return False
     
     @staticmethod
@@ -82,10 +85,13 @@ class RedisService:
             data = cast(dict[str, str], redis_client.hgetall(key))
             if not data:
                 return None
-
             url = data.get("url")
             return cast(Optional[str], url)
-        except Exception:
+        except (RedisConnectionError, RedisTimeoutError) as e:
+            logger.warning(f"Redis connection error getting link {code}: {e}")
+            return None
+        except RedisError as e:
+            logger.error(f"Redis error getting link {code}: {e}")
             return None
     
     @staticmethod
@@ -96,19 +102,20 @@ class RedisService:
         try:
             redis_client.delete(f"{RedisService.LINK_CACHE_PREFIX}{code}")
             return True
-        except Exception:
+        except RedisError as e:
+            logger.error(f"Redis error deleting link {code}: {e}")
             return False
     
     @staticmethod
     def add_code_to_set(code: str) -> bool:
         """Add a code to the set of used codes."""
         if not USE_REDIS:
-            # Pretend it succeeded so uniqueness checks can still proceed using DB
             return True
         try:
             redis_client.sadd(RedisService.CODES_SET, code)
             return True
-        except Exception:
+        except RedisError as e:
+            logger.error(f"Redis error adding code to set {code}: {e}")
             return False
     
     @staticmethod
@@ -118,7 +125,8 @@ class RedisService:
             return False
         try:
             return bool(redis_client.sismember(RedisService.CODES_SET, code))
-        except Exception:
+        except RedisError as e:
+            logger.warning(f"Redis error checking code existence {code}: {e}")
             return False
     
     @staticmethod
@@ -129,7 +137,8 @@ class RedisService:
         try:
             redis_client.srem(RedisService.CODES_SET, code)
             return True
-        except Exception:
+        except RedisError as e:
+            logger.error(f"Redis error removing code from set {code}: {e}")
             return False
     
     @staticmethod
@@ -142,7 +151,6 @@ class RedisService:
             limit = get_int("RATE_LIMIT_PER_HOUR")
 
         if not USE_REDIS:
-            # No Redis in dev: allow requests and report remaining limit
             return True, limit - 1
         
         key = f"{RedisService.RATE_LIMIT_PREFIX}{ip}"
@@ -157,14 +165,19 @@ class RedisService:
             current = int(str(current_val))
             
             if current >= limit:
-                ttl = redis_client.ttl(key)
                 return False, 0
             
             redis_client.incr(key)
             return True, limit - current - 1
             
-        except Exception:
-            # If Redis fails, allow the request
+        except (RedisConnectionError, RedisTimeoutError) as e:
+            logger.warning(f"Redis connection error in rate limit check for {ip}: {e}")
+            return True, limit
+        except RedisError as e:
+            logger.error(f"Redis error in rate limit check for {ip}: {e}")
+            return True, limit
+        except ValueError as e:
+            logger.error(f"Invalid rate limit value for {ip}: {e}")
             return True, limit
     
 
@@ -179,7 +192,8 @@ class RedisService:
                 redis_client.delete(RedisService.CODES_SET)
                 redis_client.sadd(RedisService.CODES_SET, *codes)
             return True
-        except Exception:
+        except RedisError as e:
+            logger.error(f"Redis error syncing codes from DB: {e}")
             return False
     
     @staticmethod
@@ -189,5 +203,9 @@ class RedisService:
             return True
         try:
             return bool(redis_client.ping())
-        except Exception:
+        except (RedisConnectionError, RedisTimeoutError) as e:
+            logger.warning(f"Redis health check failed (connection): {e}")
+            return False
+        except RedisError as e:
+            logger.error(f"Redis health check failed: {e}")
             return False
