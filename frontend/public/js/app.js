@@ -132,6 +132,23 @@ function setupEventListeners() {
             closeSuccessModal();
         }
     });
+
+    // CSP-safe context-menu blocking for specific visual elements.
+    document.querySelectorAll('[data-no-contextmenu="true"]').forEach((node) => {
+        node.addEventListener('contextmenu', (ev) => ev.preventDefault());
+    });
+
+    // Inject structured data without inline script to satisfy CSP.
+    const ld = document.createElement('script');
+    ld.type = 'application/ld+json';
+    ld.textContent = JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Link Shortener",
+        "url": "https://lk.kasunc.uk/",
+        "description": "TL;DR for your links. Get to the point. Fast & Secure."
+    });
+    document.head.appendChild(ld);
 }
 
 // Render a styled QR code using qr-code-styling when available, otherwise fall back to API image

@@ -1072,8 +1072,8 @@ textarea,
     }
 
     .advanced-toggle {
-        font-size: 0.85rem;
-        padding: 0.875rem 1rem;
+        font-size: 0.75rem;
+        padding: 0.4rem 0.75rem;
         width: fit-content;
         align-self: center;
     }

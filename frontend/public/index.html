@@ -22,27 +22,12 @@
     <meta name="twitter:image" content="https://lk.kasunc.uk/images/og-banner.jpg">
 
     <title>Free Link Shortener</title>
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "Link Shortener",
-      "url": "https://lk.kasunc.uk/",
-      "description": "TL;DR for your links. Get to the point. Fast & Secure."
-    }
-    </script>
-    
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Lottie Player -->
-    <script src="https://unpkg.com/@lottiefiles/lottie-player@2.0.8/dist/lottie-player.js"></script>
+    <script src="js/vendor/lottie-player-2.0.8.js"></script>
     
-    <!-- QR Code Libraries (basic + styled) -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
+    <!-- QR Code Library -->
+    <script src="js/vendor/qr-code-styling-1.5.0.min.js"></script>
     
     <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -63,7 +48,7 @@
                             alt="Link Shortener Illustration"
                             class="hero-image"
                             draggable="false"
-                            oncontextmenu="return false;"
+                            data-no-contextmenu="true"
                         >
                     </div>
                     
@@ -181,7 +166,7 @@
                         alt="Link Shortener Illustration"
                         class="hero-image"
                         draggable="false"
-                        oncontextmenu="return false;"
+                        data-no-contextmenu="true"
                     >
                 </div>
             </section>
@@ -220,7 +205,7 @@
                 </svg>
             </button>
             
-            <div class="modal-animation" oncontextmenu="return false;">
+            <div class="modal-animation" data-no-contextmenu="true">
                 <lottie-player
                     id="success-animation"
                     src="animations/link-ready.json"
