@@ -1000,7 +1000,7 @@ textarea,
     .hero-content {
         width: 100%;
         max-width: 100%;
-        align-items: stretch;
+        align-items: center;
     }
 
     .hero-title {
@@ -1027,7 +1027,7 @@ textarea,
     .shortener-card {
         padding: 0.875rem;
         width: 100%;
-        max-width: 100%;
+        max-width: min(92vw, 680px);
         margin-left: auto;
         margin-right: auto;
     }
@@ -1184,6 +1184,7 @@ textarea,
 
     .shortener-card {
         padding: 0.75rem;
+        max-width: 100%;
     }
 
     .result-group {
