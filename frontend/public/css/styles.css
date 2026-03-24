@@ -990,7 +990,7 @@ textarea,
 
 @media (max-width: 640px) {
     .page-wrapper {
-        padding: clamp(0.5rem, 2vw, 0.75rem);
+        padding: 0.75rem;
     }
 
     .hero {
@@ -999,8 +999,12 @@ textarea,
 
     .hero-content {
         width: 100%;
-        max-width: 100%;
+        max-width: 560px;
         align-items: center;
+        margin-left: auto;
+        margin-right: auto;
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
     }
 
     .hero-title {
@@ -1027,7 +1031,7 @@ textarea,
     .shortener-card {
         padding: 0.875rem;
         width: 100%;
-        max-width: min(92vw, 680px);
+        max-width: 560px;
         margin-left: auto;
         margin-right: auto;
     }
@@ -1175,16 +1179,20 @@ textarea,
 
 @media (max-width: 480px) {
     .page-wrapper {
-        padding: 0.5rem;
+        padding: 0.75rem;
     }
 
     .hero-content {
         gap: 0.75rem;
+        max-width: 100%;
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
     }
 
     .shortener-card {
         padding: 0.75rem;
-        max-width: 100%;
+        max-width: calc(100vw - 1.5rem);
+        border-radius: var(--radius-md);
     }
 
     .result-group {
