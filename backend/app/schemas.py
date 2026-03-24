@@ -3,8 +3,15 @@ from typing import Optional
 from datetime import datetime, timezone
 import re
 from urllib.parse import urlparse
+import ipaddress
 from .utils import utc_now, normalize_utc
 from .env import get_env, get_int
+
+KNOWN_SHORTENER_DOMAINS = {
+    "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly",
+    "shorturl.at", "rebrand.ly", "cutt.ly", "rb.gy", "lnkd.in", "s.id",
+    "shorte.st", "adf.ly", "trib.al", "v.gd", "mcaf.ee", "bit.do"
+}
 
 
 class ShortenRequest(BaseModel):
@@ -35,6 +42,32 @@ class ShortenRequest(BaseModel):
             raise ValueError("Your link must start with http:// or https://.")
         if not parsed.netloc:
             raise ValueError("Please enter a complete link, including the website address.")
+
+        # Block local/private/internal targets from being shortened.
+        host = (parsed.hostname or "").strip().lower()
+        if host in {"localhost", "127.0.0.1", "::1"}:
+            raise ValueError("Local or private network links cannot be shortened.")
+        try:
+            ip = ipaddress.ip_address(host)
+        except ValueError:
+            ip = None
+        if ip and (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        ):
+            raise ValueError("Local or private network links cannot be shortened.")
+
+        # Block popular shortener domains to avoid re-shortening already shortened links.
+        host_norm = host.removeprefix("www.")
+        if any(
+            host_norm == d or host_norm.endswith(f".{d}")
+            for d in KNOWN_SHORTENER_DOMAINS
+        ):
+            raise ValueError("This looks like an already shortened link. Please paste the original destination URL.")
 
         # Disallow shortening links from this same service/domain.
         try:

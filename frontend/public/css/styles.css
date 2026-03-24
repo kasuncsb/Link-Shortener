@@ -1311,6 +1311,19 @@ textarea,
 
 /* Final mobile alignment overrides (kept last for precedence) */
 @media (max-width: 640px) {
+    .page-wrapper {
+        padding: 1.25rem 1rem 0.75rem !important;
+    }
+
+    .main {
+        justify-content: flex-start !important;
+    }
+
+    .hero {
+        margin-top: 0.4rem !important;
+        gap: 1rem !important;
+    }
+
     .hero-content {
         width: 100% !important;
         margin: 0 auto !important;
@@ -1327,6 +1340,13 @@ textarea,
         width: 100% !important;
         text-align: center !important;
         margin: 0 auto !important;
+        padding-left: 0.35rem !important;
+        padding-right: 0.35rem !important;
+    }
+
+    .hero-image {
+        width: 100% !important;
+        max-width: min(96vw, 620px) !important;
     }
 
     .shortener-card {
