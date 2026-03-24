@@ -19,6 +19,7 @@ from .redis_client import RedisService, redis_client
 from .models import Link
 from .utils import utc_now, normalize_utc
 from .meta_fetcher import fetch_meta
+import asyncio
 
 # Configure logging
 logging.basicConfig(
@@ -87,17 +88,8 @@ def _preview_html(short_url: str, destination_url: str, meta: dict) -> str:
     )
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan handler."""
-    # Startup
-    logger.info("Starting Link Shortener API...")
-    
-    # Create database tables
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables created/verified")
-    
-    # Rebuild Redis cache from the database (flush then load all entries)
+def _rebuild_redis_cache_from_db() -> None:
+    """Rebuild Redis cache from DB without blocking request serving."""
     db = None
     try:
         db = SessionLocal()
@@ -149,7 +141,6 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"Failed to rebuild Redis cache keys: {e}")
 
-        db.commit()
         logger.info(f"Loaded {loaded} link entries into Redis")
         if expired_count:
             logger.info(f"Found {expired_count} expired link rows in DB; suffixes remain reserved")
@@ -163,10 +154,24 @@ async def lifespan(app: FastAPI):
                 db.close()
             except Exception:
                 pass
-    
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler."""
+    logger.info("Starting Link Shortener API...")
+
+    # Keep schema verification in startup; move cache warmup to background.
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database tables created/verified")
+
+    warmup_task = asyncio.create_task(asyncio.to_thread(_rebuild_redis_cache_from_db))
+
     yield
-    
+
     # Shutdown
+    if not warmup_task.done():
+        warmup_task.cancel()
     logger.info("Shutting down Link Shortener API...")
 
 
