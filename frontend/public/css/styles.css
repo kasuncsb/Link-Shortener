@@ -575,6 +575,7 @@ textarea,
     overflow: hidden;
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast),
                 max-height 280ms ease, opacity 250ms ease, margin-top 280ms ease, padding 280ms ease;
+    text-align: left;
 }
 
 /* Animated collapse — overrides .hidden (higher specificity wins over display:none !important) */
@@ -593,6 +594,13 @@ textarea,
 .date-input:focus {
     border-color: var(--primary);
     box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.date-input-hint {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
 }
 
 /* Expiry MCQ List */
@@ -1066,7 +1074,7 @@ textarea,
     }
 
     .url-input {
-        text-align: center;
+        text-align: left;
         width: 100%;
     }
 

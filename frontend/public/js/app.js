@@ -41,6 +41,7 @@ const elements = {
     suffixStatus: document.getElementById('suffix-status'),
     expiryPills: document.getElementById('expiry-pills'),
     expiryDate: document.getElementById('expiry-date'),
+    expiryDateHint: document.getElementById('expiry-date-hint'),
     errorMessage: document.getElementById('error-message'),
     successModal: document.getElementById('success-modal'),
     modalClose: document.getElementById('modal-close'),
@@ -220,17 +221,24 @@ function setupExpiryPills() {
     }
     elements.expiryDate.classList.add('hidden');
     elements.expiryDate.value = '';
+    if (elements.expiryDateHint) elements.expiryDateHint.classList.add('hidden');
 
     radios.forEach(radio => {
         radio.addEventListener('change', () => {
             if (radio.value === 'custom') {
                 elements.expiryDate.classList.remove('hidden');
+                if (elements.expiryDateHint) elements.expiryDateHint.classList.toggle('hidden', !!elements.expiryDate.value);
                 elements.expiryDate.focus();
             } else {
                 elements.expiryDate.classList.add('hidden');
                 elements.expiryDate.value = '';
+                if (elements.expiryDateHint) elements.expiryDateHint.classList.add('hidden');
             }
         });
+    });
+
+    elements.expiryDate.addEventListener('input', () => {
+        if (elements.expiryDateHint) elements.expiryDateHint.classList.toggle('hidden', !!elements.expiryDate.value);
     });
 }
 
@@ -535,6 +543,7 @@ function createAnotherLink() {
     }
     elements.expiryDate.classList.add('hidden');
     elements.expiryDate.value = '';
+    if (elements.expiryDateHint) elements.expiryDateHint.classList.add('hidden');
     lastSubmittedExpiryDays = null;
     
     if (elements.advancedOptions.classList.contains('open')) {
