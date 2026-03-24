@@ -758,8 +758,8 @@ textarea,
     background: var(--bg-page);
     border-radius: var(--radius-xl);
     padding: clamp(1.5rem, 4vw, 2.5rem);
-    max-width: 440px;
     width: 100%;
+    max-width: min(540px, 95vw);
     box-shadow: var(--shadow-xl);
     border: 1px solid var(--border-light);
     text-align: center;
@@ -1032,10 +1032,12 @@ textarea,
     .input-wrapper {
         flex-direction: column;
         padding: 0.5rem;
+        width: 100%;
     }
 
     .url-input {
         text-align: center;
+        width: 100%;
     }
 
     .shorten-btn {
@@ -1052,10 +1054,16 @@ textarea,
         margin-right: auto;
     }
 
+    .shortener-form {
+        width: 100%;
+        align-items: stretch;
+    }
+
     .modal-box {
-        padding: 1.5rem;
-        margin: 1rem;
-        max-width: calc(100vw - 2rem);
+        padding: 1.5rem 1rem;
+        margin: 0.5rem;
+        width: 100%;
+        max-width: calc(100vw - 1rem);
     }
 
     .suffix-prefix {
@@ -1066,7 +1074,8 @@ textarea,
     .advanced-toggle {
         font-size: 0.85rem;
         padding: 0.875rem 1rem;
-        width: 100%;
+        width: fit-content;
+        align-self: center;
     }
 
     .date-input {
