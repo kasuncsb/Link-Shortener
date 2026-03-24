@@ -1,0 +1,14 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: link-shortener
+    restart: unless-stopped
+    env_file:
+      - backend/.env
+    ports:
+      - "127.0.0.1:17320:17320"
+      - "127.0.0.1:17321:17321"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

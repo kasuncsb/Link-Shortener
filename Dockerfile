@@ -6,9 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install Python and backend dependencies
+# Install Python, Redis, and backend dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-venv python3-pip curl \
+    python3 python3-venv python3-pip curl redis-server redis-tools \
   && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt /app/backend/requirements.txt

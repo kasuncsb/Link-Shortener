@@ -28,10 +28,25 @@ Health endpoints:
 - Liveness (container): `http://localhost:17321/api/live`
 - Readiness/diagnostics: `http://localhost:17321/api/health` (also available at `/health`)
 
-If MySQL/Redis run on the Docker host (not in this container), set:
+## Recommended production run (single container)
+
+Run one container (frontend + backend + Redis together):
+
+```bash
+docker compose up -d --build
+```
+
+Use these `.env` values:
+
+- `REDIS_HOST=127.0.0.1`
+- `REDIS_PORT=6379`
+- `REDIS_DB=0`
+- `REDIS_PASSWORD=` (leave empty)
+- `MYSQL_HOST=host.docker.internal` (if MySQL stays on host)
+
+If MySQL runs on the Docker host (not in this stack), keep:
 
 - `MYSQL_HOST=host.docker.internal`
-- `REDIS_HOST=host.docker.internal`
 
 and on Linux add:
 
