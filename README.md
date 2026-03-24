@@ -1,7 +1,7 @@
 # Link Shortener
 
-<p align="center">
-  <img src="frontend/public/images/logo.png" alt="Link Shortener" width="120" />
+<p align="left">
+  <img src="frontend/public/images/logo.png" alt="Link Shortener" width="480" />
 </p>
 
 Simple link shortener with a clean UI and fast redirects.
