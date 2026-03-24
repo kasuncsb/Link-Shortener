@@ -1251,3 +1251,29 @@ textarea,
     }
 }
 
+/* Final mobile alignment overrides (kept last for precedence) */
+@media (max-width: 640px) {
+    .hero-content {
+        width: 100% !important;
+        max-width: min(560px, calc(100vw - 1.5rem)) !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        align-items: center !important;
+    }
+
+    .hero-title,
+    .hero-tagline {
+        width: 100% !important;
+        text-align: center !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    .shortener-card {
+        width: 100% !important;
+        max-width: min(560px, calc(100vw - 1.5rem)) !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+}
+
