@@ -50,7 +50,7 @@
     --transition-slow: 400ms ease;
 
     /* Typography */
-    --font-ui: 'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-ui: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-control: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
@@ -518,7 +518,7 @@ textarea,
     gap: 0.4rem;
 }
 .lp-title {
-    font-family: 'Inter', 'Open Sans', sans-serif;
+    font-family: 'Open Sans', sans-serif;
     font-size: 0.95rem;
     font-weight: 600;
     color: var(--text-primary);
@@ -1101,7 +1101,7 @@ textarea,
     bottom: clamp(0.75rem, 2vh, 1rem);
     z-index: 60;
     pointer-events: none; /* allow clicks only on children */
-    font-family: 'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .footer-links {
@@ -1118,7 +1118,7 @@ textarea,
     gap: 0.4rem;
     color: var(--primary); /* black */
     text-decoration: none;
-    font-family: 'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-weight: 600;
     font-size: 0.82rem; /* smaller */
     letter-spacing: -0.01em; /* tighten spacing */
