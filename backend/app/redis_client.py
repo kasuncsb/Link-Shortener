@@ -13,7 +13,10 @@ pool = redis.ConnectionPool(
     db=get_int("REDIS_DB"),
     password=get_env("REDIS_PASSWORD") or None,
     decode_responses=True,
-    max_connections=20
+    max_connections=20,
+    socket_timeout=5,
+    socket_connect_timeout=5,
+    retry_on_timeout=True
 )
 
 redis_client = redis.Redis(connection_pool=pool) 
