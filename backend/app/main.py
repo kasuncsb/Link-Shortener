@@ -1,44 +1,81 @@
 from fastapi import FastAPI, Request, Depends
-from fastapi.responses import RedirectResponse, JSONResponse, FileResponse
+from fastapi.responses import RedirectResponse, JSONResponse, FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from sqlalchemy.orm import Session
+import logging
 from pathlib import Path
+from html import escape
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi.exceptions import RequestValidationError
 
-from .env import get_env, get_bool, get_list, get_bool_optional
+from .env import get_env, get_bool
 from .database import engine, Base, get_db
 from .routes import router as api_router, get_client_ip
 from .services import LinkService
 from .redis_client import RedisService, redis_client
 from .models import Link
 from .utils import utc_now, normalize_utc
-from .logging_config import setup_logging, get_logger, set_request_id, get_request_id
-from .tasks import task_runner
+from .meta_fetcher import fetch_meta
 
-# Initialize structured logging
-setup_logging()
-logger = get_logger(__name__)
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 PUBLIC_DIR = Path(__file__).resolve().parents[2] / "frontend" / "public"
+PREVIEW_BOT_HINTS = [
+    "bot", "crawler", "spider", "slackbot", "twitterbot",
+    "facebookexternalhit", "linkedinbot", "discordbot",
+    "whatsapp", "telegrambot", "skypeuripreview"
+]
 
 
-class RequestIdMiddleware(BaseHTTPMiddleware):
-    """Middleware to add request ID to each request for tracing."""
-    
-    async def dispatch(self, request: Request, call_next):
-        # Get or generate request ID
-        request_id = request.headers.get("X-Request-ID")
-        rid = set_request_id(request_id)
-        
-        # Process request
-        response = await call_next(request)
-        
-        # Add request ID to response headers
-        response.headers["X-Request-ID"] = rid
-        return response
+def _is_preview_bot(request: Request) -> bool:
+    user_agent = (request.headers.get("user-agent") or "").lower()
+    return any(hint in user_agent for hint in PREVIEW_BOT_HINTS)
+
+
+def _preview_html(short_url: str, destination_url: str, meta: dict) -> str:
+    title = escape(str(meta.get("title") or "Link preview"))
+    description = escape(str(meta.get("description") or "Open this link"))
+    # Use destination image if available, otherwise fall back to service banner.
+    image = str(meta.get("image") or f"{get_env('BASE_URL').rstrip('/')}/images/og-banner.jpg")
+    domain = escape(str(meta.get("domain") or ""))
+    image_tag = f'<meta property="og:image" content="{escape(image)}">' if image else ""
+    twitter_image_tag = f'<meta name="twitter:image" content="{escape(image)}">' if image else ""
+
+    return (
+        "<!doctype html><html><head>"
+        '<meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        f"<title>{title}</title>"
+        f'<meta property="og:title" content="{title}">'
+        f'<meta property="og:description" content="{description}">'
+        f'<meta property="og:url" content="{escape(short_url)}">'
+        '<meta property="og:type" content="website">'
+        f'{image_tag}'
+        f'<meta name="twitter:title" content="{title}">'
+        f'<meta name="twitter:description" content="{description}">'
+        f'<meta name="twitter:card" content="summary_large_image">'
+        f'{twitter_image_tag}'
+        f'<link rel="canonical" href="{escape(destination_url)}">'
+        "</head><body style=\"margin:0;background:#f6f9ff;font-family:Inter,Arial,sans-serif;\">"
+        "<div style=\"max-width:680px;margin:48px auto;padding:0 20px;\">"
+        "<div style=\"background:#fff;border:1px solid #dbe7ff;border-radius:16px;overflow:hidden;box-shadow:0 12px 40px rgba(29,78,216,.14);\">"
+        f"<div style=\"padding:20px 20px 10px;color:#334155;font-size:12px;\">{domain or 'link preview'}</div>"
+        f"<div style=\"padding:0 20px 8px;color:#0f172a;font-size:28px;line-height:1.2;font-weight:700;\">{title}</div>"
+        f"<div style=\"padding:0 20px 18px;color:#334155;font-size:15px;line-height:1.5;\">{description}</div>"
+        "</div>"
+        "<div style=\"margin-top:14px;color:#64748b;font-size:12px;\">"
+        f"Short link: {escape(short_url)}"
+        "</div>"
+        "</div>"
+        "</body></html>"
+    )
 
 
 @asynccontextmanager
@@ -55,12 +92,12 @@ async def lifespan(app: FastAPI):
     try:
         db = next(get_db())
 
-        # Flush Redis completely so we load a fresh state
+        # Clear only service-specific cache keys, then rebuild from DB.
         try:
-            redis_client.flushdb()
-            logger.info("Flushed Redis database")
+            RedisService.clear_link_cache()
+            logger.info("Cleared link cache keys in Redis")
         except Exception as e:
-            logger.error(f"Failed to flush Redis: {e}")
+            logger.error(f"Failed to clear Redis link cache: {e}")
 
         now = utc_now()
 
@@ -103,13 +140,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to rebuild Redis cache from DB: {e}")
     
-    # Start background cleanup tasks
-    task_runner.start()
-    
     yield
     
     # Shutdown
-    task_runner.stop()
     logger.info("Shutting down Link Shortener API...")
 
 
@@ -153,18 +186,11 @@ async def favicon():
         return FileResponse(icon)
     return JSONResponse(status_code=404, content={"error": "Not found"})
 
-# Request ID middleware for tracing
-app.add_middleware(RequestIdMiddleware)
-
-# CORS middleware - configured via environment
-cors_origins = get_list("CORS_ORIGINS", ["*"])
-if cors_origins == ["*"]:
-    logger.warning("CORS configured to allow all origins. Set CORS_ORIGINS for production.")
-
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_credentials=True,
+    allow_origins=["*"],  # Configure appropriately for production
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -179,13 +205,19 @@ async def health_check():
     db_healthy = True
     redis_healthy = RedisService.health_check()
     
+    db = None
     try:
         from sqlalchemy import text
         db = next(get_db())
         db.execute(text("SELECT 1"))
-        db.close()
     except Exception:
         db_healthy = False
+    finally:
+        if db is not None:
+            try:
+                db.close()
+            except Exception:
+                pass
     
     status = "healthy" if (db_healthy and redis_healthy) else "degraded"
     
@@ -233,6 +265,27 @@ async def redirect_to_url(
     
     # Click recording removed per user's request
     
+    force_preview = request.query_params.get("preview") == "1"
+    if force_preview or _is_preview_bot(request):
+        short_url = f"{get_env('BASE_URL').rstrip('/')}/{code_lower}"
+        fallback_meta = {
+            "title": get_env("APP_NAME"),
+            "description": "TL;DR for your links. Get to the point. Fast & Secure.",
+            "image": f"{get_env('BASE_URL').rstrip('/')}/images/og-banner.jpg",
+            "domain": get_env("BASE_URL").replace("https://", "").replace("http://", ""),
+        }
+        try:
+            meta = await fetch_meta(url)
+        except Exception:
+            meta = fallback_meta
+        has_destination_preview = bool(meta and meta.get("title") and (meta.get("description") or meta.get("image")))
+        if not has_destination_preview:
+            meta = fallback_meta
+        return HTMLResponse(
+            content=_preview_html(short_url=short_url, destination_url=url, meta=meta),
+            status_code=200
+        )
+
     # 301 for permanent redirect (better for SEO), 302 for temporary
     return RedirectResponse(url=url, status_code=301)
 
@@ -247,11 +300,44 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             page = PUBLIC_DIR / "404.html"
             if page.exists():
                 return FileResponse(page, status_code=404)
-        return JSONResponse(status_code=404, content={"error": "Not found"})
-    return JSONResponse(status_code=exc.status_code or 500, content={"detail": exc.detail or "HTTP error"})
+        return JSONResponse(status_code=404, content={"error": "We couldn't find what you're looking for."})
+
+    # Keep user-facing errors plain and non-technical.
+    if exc.status_code == 400:
+        message = "We couldn't process that request. Please check your input and try again."
+    elif exc.status_code == 401:
+        message = "Please sign in to continue."
+    elif exc.status_code == 403:
+        message = "You don't have access to this action."
+    elif exc.status_code == 410:
+        message = "This link is no longer available."
+    elif exc.status_code == 429:
+        message = "You're doing that too often. Please wait and try again."
+    else:
+        detail = exc.detail if isinstance(exc.detail, str) and exc.detail.strip() else ""
+        message = detail or "Something went wrong. Please try again."
+    return JSONResponse(status_code=exc.status_code or 500, content={"error": message})
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    # Surface the first human-readable validation message without technical internals.
+    message = "Please check your input and try again."
+    try:
+        first = exc.errors()[0] if exc.errors() else None
+        if first:
+            msg = first.get("msg")
+            if isinstance(msg, str) and msg.strip():
+                message = msg
+    except Exception:
+        pass
+    return JSONResponse(status_code=422, content={"error": message})
 
 
 @app.exception_handler(Exception)
 async def server_error_handler(request: Request, exc: Exception):
     logger.error(f"Server error: {exc}")
-    return JSONResponse(status_code=500, content={"error": "Internal server error"})
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Something went wrong on our side. Please try again in a moment."}
+    )

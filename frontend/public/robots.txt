@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://lk.kasunc.uk/sitemap.xml

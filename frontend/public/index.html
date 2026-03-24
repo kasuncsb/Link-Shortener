@@ -4,16 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Free Link Shortener - TL;DR for your links. Get to the point. Fast.">
+    <meta name="robots" content="index,follow,max-image-preview:large">
     <meta name="theme-color" content="#1d4ed8">
     <link rel="icon" href="/favicon.ico">
+    <link rel="canonical" href="https://lk.kasunc.uk/">
 
     <!-- Open Graph -->
     <meta property="og:title" content="Free Link Shortener">
     <meta property="og:description" content="TL;DR for your links. Get to the point. Fast & Secure.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://lk.kasunc.uk">
+    <meta property="og:image" content="https://lk.kasunc.uk/images/og-banner.jpg">
+    <meta property="og:site_name" content="Link Shortener">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Free Link Shortener">
+    <meta name="twitter:description" content="TL;DR for your links. Get to the point. Fast & Secure.">
+    <meta name="twitter:image" content="https://lk.kasunc.uk/images/og-banner.jpg">
 
     <title>Free Link Shortener</title>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Link Shortener",
+      "url": "https://lk.kasunc.uk/",
+      "description": "TL;DR for your links. Get to the point. Fast & Secure."
+    }
+    </script>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -96,12 +113,9 @@
                             </button>
                             
                             <!-- Advanced Options Panel -->
-                            <div id="advanced-options" class="advanced-options hidden">
+                            <div id="advanced-options" class="advanced-options">
                                 <div class="option-group">
-                                    <label for="custom-suffix" class="option-label">
-                                        Custom suffix
-                                        <span class="option-hint">(optional)</span>
-                                    </label>
+                                    <label for="custom-suffix" class="option-label">Custom suffix</label>
                                     <div class="suffix-input-wrapper">
                                         <span class="suffix-prefix">lk.kasunc.uk/</span>
                                         <input 
@@ -109,8 +123,7 @@
                                             id="custom-suffix" 
                                             class="suffix-input"
                                             placeholder="my-link"
-                                            pattern="[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]|[a-zA-Z0-9]"
-                                            minlength="3"
+                                            minlength="5"
                                             maxlength="20"
                                         >
                                     </div>
@@ -118,21 +131,47 @@
                                 </div>
                                 
                                 <div class="option-group">
-                                    <label for="expiry-date" class="option-label">
-                                        Expiry date
-                                        <span class="option-hint">(optional, max 1 year)</span>
-                                    </label>
-                                    <input 
-                                        type="date" 
-                                        id="expiry-date" 
-                                        class="date-input"
+                                    <label class="option-label">Expires at</label>
+                                    <div class="expiry-options" id="expiry-pills" role="radiogroup" aria-label="Expiry">
+                                        <label class="expiry-option">
+                                            <input type="radio" name="expiry" value="none" checked>
+                                            <span class="expiry-radio-indicator"></span>
+                                            <span class="expiry-option-text">No Expiry</span>
+                                        </label>
+                                        <label class="expiry-option">
+                                            <input type="radio" name="expiry" value="1">
+                                            <span class="expiry-radio-indicator"></span>
+                                            <span class="expiry-option-text">24 Hours</span>
+                                        </label>
+                                        <label class="expiry-option">
+                                            <input type="radio" name="expiry" value="7">
+                                            <span class="expiry-radio-indicator"></span>
+                                            <span class="expiry-option-text">7 Days</span>
+                                        </label>
+                                        <label class="expiry-option">
+                                            <input type="radio" name="expiry" value="30">
+                                            <span class="expiry-radio-indicator"></span>
+                                            <span class="expiry-option-text">1 Month</span>
+                                        </label>
+                                        <label class="expiry-option">
+                                            <input type="radio" name="expiry" value="custom">
+                                            <span class="expiry-radio-indicator"></span>
+                                            <span class="expiry-option-text">Custom date</span>
+                                        </label>
+                                    </div>
+                                    <input
+                                        type="date"
+                                        id="expiry-date"
+                                        class="date-input hidden"
+                                        aria-label="Custom expiry date"
                                     >
                                 </div>
+
                             </div>
                         </form>
                         
                         <!-- Error Message -->
-                        <div id="error-message" class="error-message hidden"></div>
+                        <div id="error-message" class="error-message"></div>
                     </div>
                 </div>
                 
@@ -196,7 +235,7 @@
                 <p class="qr-label">Scan QR Code</p>
                 <div id="qr-code" class="qr-code"></div>
             </div>
-            
+
             <div class="modal-meta">
                 <span id="expires-info" class="expires-info"></span>
             </div>
@@ -216,7 +255,7 @@
                 <span class="footer-text">See it on GitHub</span>
             </a>
 
-            <a class="footer-link" href="https://paypal.me/AnonymousVX22" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee">
+            <a class="footer-link" href="https://buymeacoffee.com/kasuncsb" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                   <!-- Coffee cup body -->
                   <path d="M 7 10 L 8 20 C 8 20.5 8.5 21 9 21 L 15 21 C 15.5 21 16 20.5 16 20 L 17 10 Z" stroke="white" stroke-width="0.5"/>

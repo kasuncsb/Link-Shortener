@@ -2,15 +2,15 @@
 -- Run this on your MySQL server
 
 -- Create database
-CREATE DATABASE IF NOT EXISTS link_shortener
+CREATE DATABASE IF NOT EXISTS linkshortener
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
 
-USE link_shortener;
+USE linkshortener;
 -- Create user (change password!)
---- CREATE USER IF NOT EXISTS 'linkshortener'@'localhost' IDENTIFIED BY 'your_secure_password_here';
---- GRANT ALL PRIVILEGES ON linkshortener.* TO 'linkshortener'@'localhost';
---- FLUSH PRIVILEGES;
+-- CREATE USER IF NOT EXISTS 'linkshortener'@'localhost' IDENTIFIED BY 'your_secure_password_here';
+-- GRANT ALL PRIVILEGES ON linkshortener.* TO 'linkshortener'@'localhost';
+-- FLUSH PRIVILEGES;
 
 -- Links table (new schema: suffix, destination, created_at, expires_at, ip_address)
 CREATE TABLE IF NOT EXISTS links (
