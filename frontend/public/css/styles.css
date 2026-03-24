@@ -766,6 +766,36 @@ textarea,
     animation: popIn var(--transition-slow);
 }
 
+/* Keep modal comfortably within viewport on small/short screens */
+@media (max-width: 640px) {
+    .modal {
+        padding: max(0.9rem, env(safe-area-inset-top))
+                 0.75rem
+                 max(0.9rem, env(safe-area-inset-bottom));
+        align-items: center;
+    }
+
+    .modal-box {
+        width: 100%;
+        max-width: min(440px, calc(100vw - 1.5rem));
+        max-height: calc(100dvh - 1.8rem);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+@media (max-height: 740px) {
+    .modal {
+        padding-top: max(0.75rem, env(safe-area-inset-top));
+        padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+        align-items: flex-start;
+    }
+
+    .modal-box {
+        max-height: calc(100dvh - 1.5rem);
+    }
+}
+
 @keyframes popIn {
     from {
         opacity: 0;

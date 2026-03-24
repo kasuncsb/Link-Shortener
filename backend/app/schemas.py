@@ -36,6 +36,18 @@ class ShortenRequest(BaseModel):
         if not parsed.netloc:
             raise ValueError("Please enter a complete link, including the website address.")
 
+        # Disallow shortening links from this same service/domain.
+        try:
+            base = get_env("BASE_URL").strip()
+            base_parsed = urlparse(base)
+            input_host = (parsed.hostname or "").lower().removeprefix("www.")
+            base_host = (base_parsed.hostname or "").lower().removeprefix("www.")
+            if input_host and base_host and input_host == base_host:
+                raise ValueError("This link is already from this shortener. Please paste the original destination URL.")
+        except RuntimeError:
+            # If BASE_URL isn't available during validation, skip this guard safely.
+            pass
+
         if len(value) > 2048:
             raise ValueError("That link is too long. Please use a shorter URL.")
 
