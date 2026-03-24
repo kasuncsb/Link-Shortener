@@ -331,13 +331,20 @@ async def redirect_to_url(
             meta = await fetch_meta(url)
         except Exception:
             meta = fallback_meta
+        # Use destination metadata whenever available; only fill missing fields from fallback.
         has_destination_preview = bool(
             meta and (
-                (meta.get("image") and str(meta.get("image")).strip())
+                (meta.get("title") and str(meta.get("title")).strip())
                 or (meta.get("description") and str(meta.get("description")).strip())
+                or (meta.get("image") and str(meta.get("image")).strip())
+                or (meta.get("domain") and str(meta.get("domain")).strip())
             )
         )
-        if not has_destination_preview:
+        if has_destination_preview:
+            merged_meta = dict(fallback_meta)
+            merged_meta.update({k: v for k, v in (meta or {}).items() if v})
+            meta = merged_meta
+        else:
             meta = fallback_meta
         return HTMLResponse(
             content=_preview_html(short_url=short_url, destination_url=url, meta=meta),

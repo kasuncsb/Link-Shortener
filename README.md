@@ -4,61 +4,50 @@
   <img src="frontend/public/images/logo.png" alt="Link Shortener" width="160" />
 </p>
 
-Simple link shortener with a clean UI and fast redirects.
+A clean, fast link shortener built for everyday sharing.
 
-## Features
+## Product highlights
 
-- **Fast redirects**
-- **Custom short links** (your own suffix)
-- **Optional expiry** (or never expires)
-- **Basic rate limiting**
-- **Nice share previews** (uses the destination preview when available, otherwise falls back to this site)
-- **SEO-friendly landing page**
+- Shorten long URLs into easy-to-share links
+- Choose your own custom suffix when available
+- Set expiry windows or keep links permanent
+- Preview destination metadata before sharing
+- Show user-friendly pages for missing and expired links
+- Keep creation flow simple and mobile-friendly
 
-## Quick start (Docker)
+## Core features
 
-```bash
-docker build -t link-shortener:latest .
-docker run --rm -p 127.0.0.1:17320:17320 -p 127.0.0.1:17321:17321 --env-file backend/.env link-shortener:latest
-```
+### Link creation
 
-Open `http://localhost:17320`.
+- Paste a URL and generate a short link in one step
+- Optional advanced controls for custom code and expiry
+- Instant result popup with copy action and QR support
 
-Health endpoints:
-- Liveness (container): `http://localhost:17321/api/live`
-- Readiness/diagnostics: `http://localhost:17321/api/health` (also available at `/health`)
+### Link behavior
 
-## Recommended production run (single container)
+- Fast redirects for active links
+- Clear expired-link handling
+- Consistent not-found behavior for unknown codes
 
-Run one container (frontend + backend + Redis together):
+### Sharing and previews
 
-```bash
-docker compose up -d --build
-```
+- Open Graph/Twitter-friendly metadata support
+- Better-looking shares in messaging/social apps
+- Branded fallback preview when destination metadata is limited
 
-Use these `.env` values:
+### Reliability and safety
 
-- `REDIS_HOST=127.0.0.1`
-- `REDIS_PORT=6379`
-- `REDIS_DB=0`
-- `REDIS_PASSWORD=` (leave empty)
-- `MYSQL_HOST=host.docker.internal` (if MySQL stays on host)
+- Basic per-IP rate limiting on creation endpoints
+- Reserved route/code protection
+- Health endpoints for service status checks
 
-If MySQL runs on the Docker host (not in this stack), keep:
+## API at a glance
 
-- `MYSQL_HOST=host.docker.internal`
-
-and on Linux add:
-
-```bash
---add-host=host.docker.internal:host-gateway
-```
-
-## Config
-
-Copy `backend/.env.example` → `backend/.env` and edit values as needed.
+- `POST /api/shorten` — create short link
+- `GET /api/check/{code}` — check custom code availability
+- `GET /api/preview/{code}` — preview destination URL
+- `GET /{code}` — redirect short URL
 
 ## License
 
 MIT © KasunCSB
-
