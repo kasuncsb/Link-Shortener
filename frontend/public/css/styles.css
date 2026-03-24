@@ -863,11 +863,17 @@ textarea,
     display: flex;
     gap: 0.5rem;
     margin-bottom: 1.5rem;
+    justify-content: center;
+    align-items: stretch;
+    width: 100%;
+    max-width: 100%;
 }
 
 .result-input {
     font-family: var(--font-control);
-    flex: 1;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: min(100%, calc(100% - 3.25rem));
     padding: 0.75rem 0.85rem;
     font-size: 0.9rem;
     font-weight: 600;
@@ -877,6 +883,8 @@ textarea,
     border-radius: calc(var(--radius-md) - 4px);
     text-align: center;
     outline: none;
+    box-sizing: border-box;
+    field-sizing: content;
 }
 
 .copy-btn {
@@ -1257,6 +1265,13 @@ textarea,
     .result-group {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .result-input {
+        max-width: 100%;
+        width: 100%;
+        text-align: left;
+        overflow-x: auto;
     }
 
     .copy-btn {

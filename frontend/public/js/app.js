@@ -469,9 +469,23 @@ function hideError() {
 }
 
 // Success Modal
+function setResultLinkInputSizing(shortUrl) {
+    const input = elements.resultLink;
+    input.removeAttribute('size');
+    input.style.width = '';
+    if (window.matchMedia('(max-width: 480px)').matches) {
+        return;
+    }
+    const len = String(shortUrl).length;
+    const cols = Math.min(Math.max(len + 2, 22), 58);
+    input.setAttribute('size', String(cols));
+}
+
 function showSuccessModal(data) {
     const shortUrl = data.short_url;
+    elements.urlInput.value = '';
     elements.resultLink.value = shortUrl;
+    setResultLinkInputSizing(shortUrl);
     
     // Generate QR Code using styled renderer when available (fallback to image service)
     elements.qrCode.innerHTML = '';
@@ -518,6 +532,8 @@ function closeSuccessModal() {
     elements.successModal.classList.add('hidden');
     document.body.style.overflow = '';
     resetCopyButton();
+    elements.resultLink.removeAttribute('size');
+    elements.resultLink.style.width = '';
 }
 
 function createAnotherLink() {
