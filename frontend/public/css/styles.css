@@ -596,13 +596,6 @@ textarea,
     box-shadow: 0 0 0 3px var(--primary-light);
 }
 
-.date-input-hint {
-    display: block;
-    margin-top: 0.35rem;
-    font-size: 0.78rem;
-    color: var(--text-muted);
-}
-
 /* Expiry MCQ List */
 .expiry-options {
     display: flex;
