@@ -18,7 +18,6 @@ from .services import LinkService
 from .redis_client import RedisService
 from .models import Link
 from .utils import utc_now, normalize_utc
-from .meta_fetcher import fetch_meta
 import asyncio
 
 # Configure logging
@@ -89,6 +88,16 @@ def _preview_html(short_url: str, destination_url: str, meta: dict) -> str:
         f'<link rel="canonical" href="{escape(destination_url)}">'
         "</head><body></body></html>"
     )
+
+
+def _system_preview_meta() -> dict:
+    base = get_env("BASE_URL").rstrip("/")
+    return {
+        "title": get_env("APP_NAME"),
+        "description": "TL;DR for your links. Get to the point. Fast & Secure.",
+        "image": f"{base}/images/og-banner.jpg",
+        "domain": base.replace("https://", "").replace("http://", ""),
+    }
 
 def _rebuild_redis_cache_from_db() -> None:
     """Rebuild Redis cache from DB without blocking request serving."""
@@ -303,6 +312,12 @@ async def redirect_to_url(
         return JSONResponse(status_code=503, content={"error": "Service temporarily unavailable"})
 
     if not url:
+        if _should_process_unfurl(request):
+            base = get_env("BASE_URL").rstrip("/")
+            return HTMLResponse(
+                content=_preview_html(short_url=base, destination_url=base, meta=_system_preview_meta()),
+                status_code=200
+            )
         if expired:
             if "text/html" in accept:
                 page = PUBLIC_DIR / "expired.html"
@@ -320,37 +335,8 @@ async def redirect_to_url(
     
     # Click recording removed per user's request
     
-    if _should_process_unfurl(request):
-        fallback_meta = {
-            "title": get_env("APP_NAME"),
-            "description": "TL;DR for your links. Get to the point. Fast & Secure.",
-            "image": f"{get_env('BASE_URL').rstrip('/')}/images/og-banner.jpg",
-            "domain": get_env("BASE_URL").replace("https://", "").replace("http://", ""),
-        }
-        try:
-            meta = await fetch_meta(url)
-        except Exception:
-            meta = None
-
-        # Quick/strict check:
-        # - if destination has any OG meta, use destination preview (native unfurl)
-        # - if no OG meta, immediately use system fallback preview
-        if meta and meta.get("fetched_url") and bool(meta.get("has_og_meta")):
-            return RedirectResponse(url=url, status_code=302)
-
-        short_url = f"{get_env('BASE_URL').rstrip('/')}/{code_lower}"
-        return HTMLResponse(
-            content=_preview_html(short_url=short_url, destination_url=url, meta=fallback_meta),
-            status_code=200
-        )
-
-    # 301 for permanent links (better for SEO); 302 for expiring links
-    # so browsers don't cache the redirect past the expiry date.
-    link_obj = await asyncio.to_thread(
-        lambda: db.query(Link).filter(Link.suffix == code_lower).first()
-    )
-    status = 302 if (link_obj is not None and link_obj.expires_at is not None) else 301
-    return RedirectResponse(url=url, status_code=status)
+    # Simplified behavior: always redirect short links to destination.
+    return RedirectResponse(url=url, status_code=302)
 
 
 # Exception handlers

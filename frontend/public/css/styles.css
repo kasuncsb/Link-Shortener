@@ -1065,8 +1065,12 @@ textarea,
 
     .advanced-toggle {
         font-size: 0.85rem;
-        padding: 0.6rem 1rem;
-        margin: 0 auto;
+        padding: 0.875rem 1rem;
+        width: 100%;
+    }
+
+    .date-input {
+        width: 100%;
     }
 }
 
