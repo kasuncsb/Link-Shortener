@@ -14,7 +14,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Lottie Player -->
     <script src="https://unpkg.com/@lottiefiles/lottie-player@2.0.8/dist/lottie-player.js"></script>
@@ -86,6 +85,7 @@
 
         /* Description: smaller, tighter spacing and comfortable max width */
         .description {
+            font-family: var(--font-ui);
             font-size: 0.85rem; /* smaller */
             color: var(--text-secondary);
             margin-bottom: 0.9rem; /* larger gap to the button */
@@ -106,7 +106,7 @@
             padding: 0.36rem 0.85rem; /* slightly smaller */
             font-size: 0.82rem; /* smaller text */
             font-weight: 600;
-            font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; /* enforce Open Sans */
+            font-family: var(--font-control);
             color: #ffffff;
             background: #000000; /* solid black button */
             border: none;
@@ -139,6 +139,7 @@
 
         /* Footer */
         .footer {
+            font-family: var(--font-ui);
             margin-top: 1rem;
             color: var(--text-muted);
             font-size: 0.82rem;
