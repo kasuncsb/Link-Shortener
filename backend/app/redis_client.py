@@ -146,37 +146,44 @@ class RedisService:
         except Exception:
             return False
     
+    # Lua script for atomic rate limiting: increments counter and sets TTL if new.
+    # Returns the counter value AFTER increment.
+    _RATE_LIMIT_LUA = """
+    local current = redis.call('INCR', KEYS[1])
+    if current == 1 then
+        redis.call('EXPIRE', KEYS[1], ARGV[1])
+    end
+    return current
+    """
+
     @staticmethod
     def check_rate_limit(ip: str, limit: Optional[int] = None) -> tuple[bool, int]:
         """
         Check and increment rate limit for an IP.
         Returns (is_allowed, remaining_requests).
+        Uses an atomic Lua script to avoid race conditions.
         """
         if limit is None:
-            limit = get_int("RATE_LIMIT_PER_HOUR")
+            import os
+            raw = os.environ.get("RATE_LIMIT_PER_HOUR")
+            limit = int(raw) if raw and raw.isdigit() else 30
 
         if not USE_REDIS:
             # No Redis in dev: allow requests and report remaining limit
             return True, limit - 1
-        
+
         key = f"{RedisService.RATE_LIMIT_PREFIX}{ip}"
-        
+
         try:
-            current_val = redis_client.get(key)
-            
-            if current_val is None:
-                redis_client.setex(key, RedisService.RATE_LIMIT_TTL, 1)
-                return True, limit - 1
-            
-            current = int(str(current_val))
-            
-            if current >= limit:
-                ttl = redis_client.ttl(key)
+            current = int(redis_client.eval(  # type: ignore[arg-type]
+                RedisService._RATE_LIMIT_LUA, 1, key, str(RedisService.RATE_LIMIT_TTL)
+            ))
+
+            if current > limit:
                 return False, 0
-            
-            redis_client.incr(key)
-            return True, limit - current - 1
-            
+
+            return True, limit - current
+
         except Exception:
             # If Redis fails, allow the request
             return True, limit

@@ -18,7 +18,7 @@ class ShortenRequest(BaseModel):
     )
     expires_in_days: Optional[int] = Field(
         None,
-        ge=1,
+        ge=0,
         le=365,
         description="Days until link expires (optional)"
     )
@@ -106,8 +106,8 @@ class ShortenRequest(BaseModel):
                     today = utc_now()
                     diff = (selected or today) - today
                     diff_days = int(diff.total_seconds() // 86400)
-                    if diff_days < 1:
-                        diff_days = 1
+                    if diff_days < 0:
+                        diff_days = 0
                     values['expires_in_days'] = min(diff_days, 365)
             except Exception:
                 # If parsing fails, ignore and let validation handle it

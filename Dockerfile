@@ -8,7 +8,7 @@ WORKDIR /app
 
 # Install Python and backend dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-venv python3-pip \
+    python3 python3-venv python3-pip curl \
   && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt /app/backend/requirements.txt
@@ -27,5 +27,9 @@ RUN chmod +x /app/start.sh
 WORKDIR /app/backend
 
 EXPOSE 17320 17321
+
+# Health check every 30 seconds against the backend /health endpoint
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:17321/health || exit 1
 
 CMD ["bash", "/app/start.sh"]

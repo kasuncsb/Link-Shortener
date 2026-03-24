@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, BigInteger, Index
+from sqlalchemy import Column, BigInteger, String, DateTime, Text, Index
 from sqlalchemy.sql import func
 from .database import Base
 
@@ -8,16 +8,14 @@ class Link(Base):
     
     __tablename__ = "links"
     
-    # Use Integer for primary key so SQLite ``AUTOINCREMENT`` works predictably
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    suffix = Column(String(64), unique=True, nullable=False, index=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    suffix = Column(String(64), unique=True, nullable=False)
     destination = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.utc_timestamp())
     expires_at = Column(DateTime(timezone=True), nullable=True)
     ip_address = Column(String(255), nullable=True)
     
     __table_args__ = (
-        Index('idx_suffix', 'suffix'),
         Index('idx_expires_at', 'expires_at'),
         Index('idx_created_at', 'created_at'),
     )

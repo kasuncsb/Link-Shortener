@@ -89,7 +89,6 @@ loadRuntimeConfig().then(() => {
         try {
             applyCustomCodeLimitsToInput();
             setupEventListeners();
-            setupDateInput();
             checkForRedirectError();
         } catch (e) {
             // if elements not present, fail gracefully
@@ -241,17 +240,17 @@ function getSelectedExpiryDays() {
     if (expiry === 'none') return null;
     if (expiry === 'custom') {
         if (!elements.expiryDate.value) return null;
-        const today = new Date();
-        const selected = new Date(elements.expiryDate.value + 'T00:00:00');
-        const diffDays = Math.ceil((selected - today) / (1000 * 60 * 60 * 24));
-        return diffDays > 0 ? Math.min(diffDays, 365) : null;
+        // Compute diff using UTC midnight-to-midnight to avoid timezone edge cases
+        const todayUTC = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
+        const parts = elements.expiryDate.value.split('-');
+        const selectedUTC = new Date(Date.UTC(+parts[0], +parts[1] - 1, +parts[2]));
+        const diffDays = Math.round((selectedUTC - todayUTC) / (1000 * 60 * 60 * 24));
+        return diffDays >= 0 ? Math.min(diffDays, 365) : null;
     }
     return parseInt(expiry, 10);
 }
 
-function setupDateInput() {
-    // kept for backward compatibility but no longer called
-}
+
 
 function checkForRedirectError() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -313,15 +312,24 @@ function handleSuffixInput(e) {
 async function checkSuffixAvailability(suffix) {
     try {
         const response = await fetch(`${API_BASE}/api/check/${suffix}`);
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(extractErrorMessage(data, response.status) || 'Could not verify right now');
+        }
         
         if (data.available) {
             setSuffixStatus('✓ Available', 'available');
         } else {
-            setSuffixStatus('✗ Already taken', 'taken');
+            if (data.reason === 'reserved') {
+                setSuffixStatus('✗ Reserved word', 'taken');
+            } else if (data.reason === 'taken') {
+                setSuffixStatus('✗ Already taken', 'taken');
+            } else {
+                setSuffixStatus('✗ Not available', 'taken');
+            }
         }
     } catch (error) {
-        setSuffixStatus('Could not verify', '');
+        setSuffixStatus('Could not verify now', '');
     }
 }
 
@@ -369,7 +377,7 @@ async function handleSubmit(e) {
 
         const expiryDays = getSelectedExpiryDays();
         lastSubmittedExpiryDays = expiryDays;
-        if (expiryDays) {
+        if (expiryDays !== null) {
             payload.expires_in_days = expiryDays;
         }
         

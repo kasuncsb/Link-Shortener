@@ -5,13 +5,14 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from sqlalchemy.orm import Session
 import logging
+import os
 from pathlib import Path
 from html import escape
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.exceptions import RequestValidationError
 
 from .env import get_env, get_bool
-from .database import engine, Base, get_db
+from .database import engine, Base, get_db, SessionLocal
 from .routes import router as api_router, get_client_ip
 from .services import LinkService
 from .redis_client import RedisService, redis_client
@@ -29,13 +30,19 @@ logger = logging.getLogger(__name__)
 PUBLIC_DIR = Path(__file__).resolve().parents[2] / "frontend" / "public"
 PREVIEW_BOT_HINTS = [
     "bot", "crawler", "spider", "slackbot", "twitterbot",
-    "facebookexternalhit", "linkedinbot", "discordbot",
-    "whatsapp", "telegrambot", "skypeuripreview"
+    "facebookexternalhit", "facebookcatalog", "linkedin", "discordbot",
+    "whatsapp", "telegrambot", "skypeuripreview", "applebot",
+    "googlebot", "bingbot", "yandexbot", "duckduckbot", "pinterest"
 ]
 
 
 def _is_preview_bot(request: Request) -> bool:
     user_agent = (request.headers.get("user-agent") or "").lower()
+    purpose = (request.headers.get("purpose") or "").lower()
+    x_purpose = (request.headers.get("x-purpose") or "").lower()
+    sec_purpose = (request.headers.get("sec-purpose") or "").lower()
+    if "preview" in purpose or "preview" in x_purpose or "preview" in sec_purpose:
+        return True
     return any(hint in user_agent for hint in PREVIEW_BOT_HINTS)
 
 
@@ -46,6 +53,7 @@ def _preview_html(short_url: str, destination_url: str, meta: dict) -> str:
     image = str(meta.get("image") or f"{get_env('BASE_URL').rstrip('/')}/images/og-banner.jpg")
     domain = escape(str(meta.get("domain") or ""))
     image_tag = f'<meta property="og:image" content="{escape(image)}">' if image else ""
+    image_secure_tag = f'<meta property="og:image:secure_url" content="{escape(image)}">' if image and image.startswith("https://") else ""
     twitter_image_tag = f'<meta name="twitter:image" content="{escape(image)}">' if image else ""
 
     return (
@@ -58,6 +66,7 @@ def _preview_html(short_url: str, destination_url: str, meta: dict) -> str:
         f'<meta property="og:url" content="{escape(short_url)}">'
         '<meta property="og:type" content="website">'
         f'{image_tag}'
+        f'{image_secure_tag}'
         f'<meta name="twitter:title" content="{title}">'
         f'<meta name="twitter:description" content="{description}">'
         f'<meta name="twitter:card" content="summary_large_image">'
@@ -89,15 +98,9 @@ async def lifespan(app: FastAPI):
     logger.info("Database tables created/verified")
     
     # Rebuild Redis cache from the database (flush then load all entries)
+    db = None
     try:
-        db = next(get_db())
-
-        # Clear only service-specific cache keys, then rebuild from DB.
-        try:
-            RedisService.clear_link_cache()
-            logger.info("Cleared link cache keys in Redis")
-        except Exception as e:
-            logger.error(f"Failed to clear Redis link cache: {e}")
+        db = SessionLocal()
 
         now = utc_now()
 
@@ -109,6 +112,8 @@ async def lifespan(app: FastAPI):
 
         loaded = 0
         skipped = 0
+        to_cache = []
+        expired_codes = []
         links = db.query(Link).all()
         for link in links:
             try:
@@ -116,29 +121,48 @@ async def lifespan(app: FastAPI):
                 url = getattr(link, "destination", None)
                 expires_at_val = normalize_utc(getattr(link, "expires_at", None))
 
-                # Skip expired links (keep DB rows so suffixes remain reserved)
+                # Expired links: don't cache the URL, but still reserve the suffix
                 if expires_at_val and expires_at_val < now:
                     skipped += 1
+                    if code:
+                        expired_codes.append(code)
                     continue
 
                 # Cache non-expired entries in Redis with TTL matching DB expiry (or persist if none)
                 if url and code:
-                    RedisService.cache_link(code, url, expires_at=expires_at_val)
-                    RedisService.add_code_to_set(code)
+                    to_cache.append((code, url, expires_at_val))
                     loaded += 1
             except Exception:
                 # Skip problematic rows
                 continue
 
+        # Clear old cache only after DB load succeeded, then repopulate.
+        try:
+            RedisService.clear_link_cache()
+            logger.info("Cleared link cache keys in Redis")
+            for code, url, expires_at_val in to_cache:
+                RedisService.cache_link(code, url, expires_at=expires_at_val)
+                RedisService.add_code_to_set(code)
+            # Add expired codes to the used-codes set to prevent reuse
+            for code in expired_codes:
+                RedisService.add_code_to_set(code)
+        except Exception as e:
+            logger.error(f"Failed to rebuild Redis cache keys: {e}")
+
         db.commit()
         logger.info(f"Loaded {loaded} link entries into Redis")
         if expired_count:
-            logger.info(f"Found {expired_count} expired link rows in DB; skipped caching to keep suffixes reserved")
+            logger.info(f"Found {expired_count} expired link rows in DB; suffixes remain reserved")
         if skipped:
             logger.info(f"Skipped caching {skipped} expired links during startup")
-        db.close()
     except Exception as e:
         logger.error(f"Failed to rebuild Redis cache from DB: {e}")
+    finally:
+        if db is not None:
+            try:
+                db.close()
+            except Exception:
+                pass
     
     yield
     
@@ -187,9 +211,14 @@ async def favicon():
     return JSONResponse(status_code=404, content={"error": "Not found"})
 
 # CORS middleware
+_cors_raw = get_env("CORS_ORIGINS") if "CORS_ORIGINS" in os.environ else "*"
+_cors_origins: list[str] = (
+    ["*"] if _cors_raw.strip() == "*"
+    else [o.strip() for o in _cors_raw.split(",") if o.strip()]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=_cors_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -208,7 +237,7 @@ async def health_check():
     db = None
     try:
         from sqlalchemy import text
-        db = next(get_db())
+        db = SessionLocal()
         db.execute(text("SELECT 1"))
     except Exception:
         db_healthy = False
@@ -245,7 +274,13 @@ async def redirect_to_url(
     # Resolve URL (cache first, then DB). get_original_url returns (url, expired)
     accept = request.headers.get("accept", "")
 
-    url, expired = LinkService.get_original_url(db, code_lower)
+    try:
+        url, expired = LinkService.get_original_url(db, code_lower)
+    except Exception:
+        logger.exception("Failed to resolve short code '%s'", code_lower)
+        if "text/html" in accept:
+            return JSONResponse(status_code=503, content={"error": "Service temporarily unavailable"})
+        return JSONResponse(status_code=503, content={"error": "Service temporarily unavailable"})
 
     if not url:
         if expired:
@@ -278,7 +313,12 @@ async def redirect_to_url(
             meta = await fetch_meta(url)
         except Exception:
             meta = fallback_meta
-        has_destination_preview = bool(meta and meta.get("title") and (meta.get("description") or meta.get("image")))
+        has_destination_preview = bool(
+            meta and (
+                (meta.get("image") and str(meta.get("image")).strip())
+                or (meta.get("description") and str(meta.get("description")).strip())
+            )
+        )
         if not has_destination_preview:
             meta = fallback_meta
         return HTMLResponse(
@@ -286,8 +326,11 @@ async def redirect_to_url(
             status_code=200
         )
 
-    # 301 for permanent redirect (better for SEO), 302 for temporary
-    return RedirectResponse(url=url, status_code=301)
+    # 301 for permanent links (better for SEO); 302 for expiring links
+    # so browsers don't cache the redirect past the expiry date.
+    link_obj = db.query(Link).filter(Link.suffix == code_lower).first()
+    status = 302 if (link_obj is not None and link_obj.expires_at is not None) else 301
+    return RedirectResponse(url=url, status_code=status)
 
 
 # Exception handlers

@@ -19,10 +19,21 @@ Simple link shortener with a clean UI and fast redirects.
 
 ```bash
 docker build -t link-shortener:latest .
-docker run --rm -p 3000:3000 -p 17321:17321 --env-file backend/.env link-shortener:latest
+docker run --rm -p 17320:17320 -p 17321:17321 --env-file backend/.env link-shortener:latest
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:17320`.
+
+If MySQL/Redis run on the Docker host (not in this container), set:
+
+- `MYSQL_HOST=host.docker.internal`
+- `REDIS_HOST=host.docker.internal`
+
+and on Linux add:
+
+```bash
+--add-host=host.docker.internal:host-gateway
+```
 
 ## Config
 

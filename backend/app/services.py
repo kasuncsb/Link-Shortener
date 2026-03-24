@@ -73,7 +73,7 @@ class LinkService:
         
         # Calculate expiry — None means the link never expires
         expires_at = None
-        if expires_in_days:
+        if expires_in_days is not None and expires_in_days >= 0:
             expires_at = utc_now() + timedelta(days=expires_in_days)
         
         # Create link
@@ -116,12 +116,18 @@ class LinkService:
         returns (None, True). If not found, returns (None, False).
         """
         # Check cache first
-        cached = RedisService.get_cached_link(code)
+        try:
+            cached = RedisService.get_cached_link(code)
+        except Exception:
+            cached = None
         if cached:
             return cached, False
 
         # Check database
-        link = db.query(Link).filter(Link.suffix == code).first()
+        try:
+            link = db.query(Link).filter(Link.suffix == code).first()
+        except SQLAlchemyError as exc:
+            raise RuntimeError("Database lookup failed") from exc
 
         if not link:
             return None, False
@@ -129,14 +135,20 @@ class LinkService:
         # Check expiry
         expires_at_val = normalize_utc(cast(Optional[datetime], link.expires_at))
         if expires_at_val and expires_at_val < utc_now():
-            # Ensure Redis doesn't have the expired key
-            RedisService.delete_cached_link(code)
-            RedisService.remove_code_from_set(code)
+            # Ensure Redis link cache is cleared but keep code in used set
+            # so the expired suffix cannot be reused.
+            try:
+                RedisService.delete_cached_link(code)
+            except Exception:
+                pass
             return None, True
 
         # Cache for future requests (set TTL based on DB expiry)
         destination = cast(str, link.destination)
-        RedisService.cache_link(code, destination, expires_at=expires_at_val)
+        try:
+            RedisService.cache_link(code, destination, expires_at=expires_at_val)
+        except Exception:
+            pass
 
         return destination, False
     
@@ -175,7 +187,7 @@ class LinkService:
     
     @staticmethod
     def cleanup_expired_links(db: Session) -> int:
-        """Remove expired entries from Redis. Returns number removed from Redis."""
+        """Remove expired URL caches from Redis. Suffixes stay reserved to prevent reuse."""
         now = utc_now()
         expired_links = db.query(Link).filter(Link.expires_at != None).filter(Link.expires_at < now).all()
         count = 0
@@ -183,7 +195,7 @@ class LinkService:
             try:
                 suffix = cast(str, link.suffix)
                 RedisService.delete_cached_link(suffix)
-                RedisService.remove_code_from_set(suffix)
+                # Do NOT call remove_code_from_set — expired suffixes must remain reserved
                 count += 1
             except Exception:
                 continue

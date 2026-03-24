@@ -16,7 +16,7 @@ from .services import LinkService
 from .redis_client import RedisService
 from .utils import format_short_url, is_reserved_code
 from .meta_fetcher import fetch_meta
-from .env import get_env
+from .env import get_env, get_bool
 
 router = APIRouter()
 
@@ -119,7 +119,10 @@ async def preview_link(
     db: Session = Depends(get_db)
 ):
     """Preview a link before redirecting."""
-    url, expired = LinkService.get_original_url(db, code.lower())
+    try:
+        url, expired = LinkService.get_original_url(db, code.lower())
+    except Exception:
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again in a moment.")
 
     if not url:
         if expired:
@@ -147,7 +150,10 @@ async def check_code_availability(
     if RedisService.code_exists(code_lower):
         return {"available": False, "reason": "taken"}
     
-    existing = db.query(Link).filter(Link.suffix == code_lower).first()
+    try:
+        existing = db.query(Link).filter(Link.suffix == code_lower).first()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Could not verify availability right now. Please try again.")
     
     if existing:
         return {"available": False, "reason": "taken"}
@@ -175,7 +181,13 @@ async def preview_debug(
     """
     Debug endpoint to verify social preview source for a short code.
     """
-    url, expired = LinkService.get_original_url(db, code.lower())
+    if not get_bool("DEBUG"):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    try:
+        url, expired = LinkService.get_original_url(db, code.lower())
+    except Exception:
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again in a moment.")
     if not url:
         if expired:
             raise HTTPException(status_code=410, detail="This link has expired.")
@@ -183,6 +195,7 @@ async def preview_debug(
 
     base_url = get_env("BASE_URL").rstrip("/")
     source = "fallback"
+    source_reason = "destination meta unavailable"
     preview = {
         "title": "Link Shortener",
         "description": "TL;DR for your links. Get to the point. Fast & Secure.",
@@ -193,14 +206,16 @@ async def preview_debug(
         dest = await fetch_meta(url)
         if dest and dest.get("title") and (dest.get("description") or dest.get("image")):
             source = "destination"
+            source_reason = "destination meta used"
             preview = dest
     except Exception:
-        pass
+        source_reason = "destination fetch failed"
 
     return {
         "code": code.lower(),
         "short_url": f"{base_url}/{code.lower()}",
         "destination_url": url,
         "source": source,
+        "source_reason": source_reason,
         "preview": preview,
     }

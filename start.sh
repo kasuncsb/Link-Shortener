@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Start frontend (Node) and backend (Uvicorn) in one container
+# Start frontend (Node) and backend (Uvicorn) in one container.
+# Exit the container if either process exits unexpectedly.
 node /app/frontend/server.js &
-exec uvicorn app.main:app --host 0.0.0.0 --port 17321
+FRONTEND_PID=$!
+
+uvicorn app.main:app --host 0.0.0.0 --port 17321 &
+BACKEND_PID=$!
+
+cleanup() {
+  kill "${FRONTEND_PID}" "${BACKEND_PID}" 2>/dev/null || true
+}
+
+trap cleanup TERM INT EXIT
+
+# wait -n returns the exit code of the first process that finishes
+wait -n "${FRONTEND_PID}" "${BACKEND_PID}"
+EXIT_CODE=$?
+exit ${EXIT_CODE}
