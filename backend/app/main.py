@@ -292,7 +292,8 @@ async def redirect_to_url(
     accept = request.headers.get("accept", "")
 
     try:
-        url, expired = LinkService.get_original_url(db, code_lower)
+        # Avoid blocking the event loop with sync DB/Redis calls.
+        url, expired = await asyncio.to_thread(LinkService.get_original_url, db, code_lower)
     except Exception:
         logger.exception("Failed to resolve short code '%s'", code_lower)
         if "text/html" in accept:
@@ -345,7 +346,9 @@ async def redirect_to_url(
 
     # 301 for permanent links (better for SEO); 302 for expiring links
     # so browsers don't cache the redirect past the expiry date.
-    link_obj = db.query(Link).filter(Link.suffix == code_lower).first()
+    link_obj = await asyncio.to_thread(
+        lambda: db.query(Link).filter(Link.suffix == code_lower).first()
+    )
     status = 302 if (link_obj is not None and link_obj.expires_at is not None) else 301
     return RedirectResponse(url=url, status_code=status)
 

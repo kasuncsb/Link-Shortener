@@ -14,8 +14,8 @@ pool = redis.ConnectionPool(
     password=get_env("REDIS_PASSWORD") or None,
     decode_responses=True,
     max_connections=20,
-    socket_timeout=5,
-    socket_connect_timeout=5,
+    socket_timeout=1,
+    socket_connect_timeout=1,
     retry_on_timeout=True
 )
 

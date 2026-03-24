@@ -42,7 +42,7 @@ def get_client_ip(request: Request) -> str:
         429: {"model": ErrorResponse}
     }
 )
-async def create_short_link(
+def create_short_link(
     request: Request,
     data: ShortenRequest,
     db: Session = Depends(get_db)
@@ -86,7 +86,7 @@ async def create_short_link(
     response_model=LinkStatsResponse,
     responses={404: {"model": ErrorResponse}}
 )
-async def get_link_stats(
+def get_link_stats(
     code: str,
     db: Session = Depends(get_db)
 ):
@@ -114,7 +114,7 @@ async def get_link_stats(
     response_model=LinkPreviewResponse,
     responses={404: {"model": ErrorResponse}}
 )
-async def preview_link(
+def preview_link(
     code: str,
     db: Session = Depends(get_db)
 ):
@@ -137,7 +137,7 @@ async def preview_link(
 
 
 @router.get("/check/{code}")
-async def check_code_availability(
+def check_code_availability(
     code: str,
     db: Session = Depends(get_db)
 ):

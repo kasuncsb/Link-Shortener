@@ -8,9 +8,15 @@ DATABASE_URL = (
 )
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"init_command": "SET time_zone = '+00:00'"},
+    connect_args={
+        "init_command": "SET time_zone = '+00:00'",
+        "connect_timeout": 3,
+        "read_timeout": 5,
+        "write_timeout": 5,
+    },
     pool_pre_ping=True,
     pool_recycle=3600,
+    pool_timeout=5,
     pool_size=10,
     max_overflow=20
 ) 
