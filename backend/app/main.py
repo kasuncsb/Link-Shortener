@@ -47,6 +47,22 @@ def _is_preview_bot(request: Request) -> bool:
     return any(hint in user_agent for hint in PREVIEW_BOT_HINTS)
 
 
+def _should_process_unfurl(request: Request) -> bool:
+    """Decide whether this request is likely for social/link preview unfurl."""
+    if request.query_params.get("preview") == "1":
+        return True
+    if _is_preview_bot(request):
+        return True
+
+    # Some unfurlers don't match our UA hints. They usually request HTML
+    # but do not send browser sec-fetch headers.
+    accept = (request.headers.get("accept") or "").lower()
+    has_browser_fetch_headers = any(
+        request.headers.get(h) for h in ("sec-fetch-site", "sec-fetch-mode", "sec-fetch-dest")
+    )
+    return ("text/html" in accept) and (not has_browser_fetch_headers)
+
+
 def _preview_html(short_url: str, destination_url: str, meta: dict) -> str:
     title = escape(str(meta.get("title") or "Link preview"))
     description = escape(str(meta.get("description") or "Open this link"))
@@ -304,8 +320,7 @@ async def redirect_to_url(
     
     # Click recording removed per user's request
     
-    force_preview = request.query_params.get("preview") == "1"
-    if force_preview or _is_preview_bot(request):
+    if _should_process_unfurl(request):
         fallback_meta = {
             "title": get_env("APP_NAME"),
             "description": "TL;DR for your links. Get to the point. Fast & Secure.",

@@ -332,6 +332,8 @@ textarea,
     padding: 0 1rem;
     border-color: transparent;
     transition: max-height 350ms ease, opacity 280ms ease, padding 350ms ease, border-color 350ms ease;
+    width: 100%;
+    max-width: 100%;
 }
 
 .advanced-options.open {
@@ -368,6 +370,8 @@ textarea,
     border: 1px solid var(--border-light);
     border-radius: var(--radius-md);
     overflow: hidden;
+    width: 100%;
+    max-width: 100%;
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
@@ -387,6 +391,8 @@ textarea,
 
 .suffix-input {
     flex: 1;
+    min-width: 0;
+    width: 100%;
     padding: 0.875rem 1rem;
     font-size: 0.9rem;
     font-weight: 500;
