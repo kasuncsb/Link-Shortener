@@ -228,12 +228,11 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api", tags=["API"])
 
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
+def _health_payload() -> dict:
+    """Build health payload used by both health endpoints."""
     db_healthy = True
     redis_healthy = RedisService.health_check()
-    
+
     db = None
     try:
         from sqlalchemy import text
@@ -247,15 +246,22 @@ async def health_check():
                 db.close()
             except Exception:
                 pass
-    
+
     status = "healthy" if (db_healthy and redis_healthy) else "degraded"
-    
+
     return {
         "status": status,
         "database": db_healthy,
         "redis": redis_healthy,
         "version": get_env("APP_VERSION")
     }
+
+
+@app.get("/health")
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint (supports /health and /api/health)."""
+    return _health_payload()
 
 
 @app.get("/{code}")

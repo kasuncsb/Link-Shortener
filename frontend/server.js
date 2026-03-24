@@ -47,6 +47,11 @@ function proxyApiRequest(req, res) {
         }
     );
 
+    // Avoid hanging requests when backend is slow/unreachable.
+    proxyReq.setTimeout(15000, () => {
+        proxyReq.destroy(new Error('proxy timeout'));
+    });
+
     proxyReq.on('error', () => {
         if (!res.headersSent) {
             res.status(503).json({ error: 'API temporarily unavailable. Please try again.' });
@@ -58,22 +63,7 @@ function proxyApiRequest(req, res) {
     req.pipe(proxyReq);
 }
 
-// Limit request body size (1 MB) to prevent memory exhaustion.
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: false, limit: '1mb' }));
-
-// Proxy all API calls to backend service inside the container.
-app.use('/api', proxyApiRequest);
-
-// Serve static files
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Home route
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Runtime config for browser app
+// Runtime config for browser app (must be before static middleware).
 app.get('/config.json', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.json({
@@ -81,6 +71,21 @@ app.get('/config.json', (req, res) => {
         MIN_CUSTOM_CODE_LENGTH: Number.isFinite(MIN_CUSTOM_CODE_LENGTH) ? MIN_CUSTOM_CODE_LENGTH : 5,
         MAX_CUSTOM_CODE_LENGTH: Number.isFinite(MAX_CUSTOM_CODE_LENGTH) ? MAX_CUSTOM_CODE_LENGTH : 20
     });
+});
+
+// Proxy all API calls before body parsers consume request streams.
+app.use('/api', proxyApiRequest);
+
+// Limit body size for any future non-proxied endpoints.
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+
+// Serve static files after dynamic config route.
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Home route
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // 404 page for all other routes

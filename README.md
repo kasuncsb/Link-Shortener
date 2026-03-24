@@ -19,10 +19,12 @@ Simple link shortener with a clean UI and fast redirects.
 
 ```bash
 docker build -t link-shortener:latest .
-docker run --rm -p 17320:17320 -p 17321:17321 --env-file backend/.env link-shortener:latest
+docker run --rm -p 127.0.0.1:17320:17320 -p 127.0.0.1:17321:17321 --env-file backend/.env link-shortener:latest
 ```
 
 Open `http://localhost:17320`.
+
+Health endpoint: `http://localhost:17321/api/health` (also available at `/health`).
 
 If MySQL/Redis run on the Docker host (not in this container), set:
 
