@@ -317,19 +317,12 @@ async def redirect_to_url(
         except Exception:
             meta = None
 
-        # If destination has useful preview metadata, redirect to destination for native unfurl.
-        has_destination_preview = bool(
-            meta
-            and meta.get("fetched_url")
-            and (
-                (meta.get("image") and str(meta.get("image")).strip())
-                or (meta.get("description") and str(meta.get("description")).strip())
-            )
-        )
-        if has_destination_preview:
+        # Quick/strict check:
+        # - if destination has any OG meta, use destination preview (native unfurl)
+        # - if no OG meta, immediately use system fallback preview
+        if meta and meta.get("fetched_url") and bool(meta.get("has_og_meta")):
             return RedirectResponse(url=url, status_code=302)
 
-        # Otherwise serve service fallback preview.
         short_url = f"{get_env('BASE_URL').rstrip('/')}/{code_lower}"
         return HTMLResponse(
             content=_preview_html(short_url=short_url, destination_url=url, meta=fallback_meta),

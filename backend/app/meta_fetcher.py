@@ -116,6 +116,13 @@ def _extract(soup: BeautifulSoup, url: str) -> dict:
         or meta_name("image")
     )
 
+    # Strict OG presence check (explicit Open Graph fields only).
+    has_og_meta = bool(
+        og("title")
+        or og("description")
+        or og("image")
+    )
+
     # Resolve relative image URL
     if image:
         image = urljoin(f"{parsed.scheme}://{parsed.netloc}/", image)
@@ -141,6 +148,7 @@ def _extract(soup: BeautifulSoup, url: str) -> dict:
         "image": image,
         "favicon": favicon,
         "domain": domain,
+        "has_og_meta": has_og_meta,
     }
 
 
@@ -173,4 +181,5 @@ async def fetch_meta(url: str) -> dict:
             "image": None,
             "favicon": f"{parsed.scheme}://{parsed.netloc}/favicon.ico",
             "domain": domain,
+            "has_og_meta": False,
         }

@@ -990,66 +990,77 @@ textarea,
 
 @media (max-width: 640px) {
     .page-wrapper {
-        padding: 0.75rem;
+        padding: 1.5rem 1rem; /* More generous mobile padding to avoid edge hugging */
     }
 
     .hero {
-        gap: clamp(0.75rem, 2vh, 1rem);
+        gap: 1.5rem; /* Better vertical spacing */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
     }
 
     .hero-content {
         width: 100%;
         max-width: 560px;
         align-items: center;
-        margin-left: auto;
-        margin-right: auto;
-        padding-left: 0.25rem;
-        padding-right: 0.25rem;
+        margin: 0 auto;
     }
 
     .hero-title {
-        font-size: clamp(1.75rem, 9vw, 2.25rem);
+        font-size: clamp(2rem, 9vw, 2.5rem);
+        text-align: center;
     }
 
     .hero-tagline {
-        font-size: clamp(0.95rem, 4vw, 1.1rem);
+        font-size: clamp(1rem, 4vw, 1.15rem);
+        text-align: center;
     }
 
     .hero-image {
-        max-width: min(90vw, 450px);
+        max-width: 100%;
+        height: auto;
     }
 
     .input-wrapper {
         flex-direction: column;
-        padding: 0.35rem;
+        padding: 0.5rem;
+    }
+
+    .url-input {
+        text-align: center;
     }
 
     .shorten-btn {
         width: 100%;
+        padding: 0.875rem 1.5rem;
     }
 
     .shortener-card {
-        padding: 0.875rem;
+        padding: 1.25rem;
         width: 100%;
-        max-width: 560px;
+        max-width: 100%;
+        margin-top: 1rem;
         margin-left: auto;
         margin-right: auto;
     }
 
     .modal-box {
-        padding: 1.25rem;
-        margin: 0.5rem;
-        max-width: 96vw;
+        padding: 1.5rem;
+        margin: 1rem;
+        max-width: calc(100vw - 2rem);
     }
 
     .suffix-prefix {
-        font-size: 0.75rem;
-        padding: 0.6rem;
+        font-size: 0.8rem;
+        padding: 0.75rem 0.5rem 0.75rem 0.75rem;
     }
 
     .advanced-toggle {
-        font-size: 0.75rem;
-        padding: 0.4rem 0.75rem;
+        font-size: 0.85rem;
+        padding: 0.6rem 1rem;
+        margin: 0 auto;
     }
 }
 
@@ -1179,19 +1190,17 @@ textarea,
 
 @media (max-width: 480px) {
     .page-wrapper {
-        padding: 0.75rem;
+        padding: 1rem;
     }
 
     .hero-content {
-        gap: 0.75rem;
+        gap: 1rem;
         max-width: 100%;
-        padding-left: 0.25rem;
-        padding-right: 0.25rem;
     }
 
     .shortener-card {
-        padding: 0.75rem;
-        max-width: calc(100vw - 1.5rem);
+        padding: 1rem;
+        max-width: 100%;
         border-radius: var(--radius-md);
     }
 
@@ -1255,9 +1264,12 @@ textarea,
 @media (max-width: 640px) {
     .hero-content {
         width: 100% !important;
-        max-width: min(560px, calc(100vw - 1.5rem)) !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
+        margin: 0 auto !important;
+        align-items: center !important;
+        text-align: center !important;
+    }
+
+    .shortener-form {
         align-items: center !important;
     }
 
@@ -1265,15 +1277,12 @@ textarea,
     .hero-tagline {
         width: 100% !important;
         text-align: center !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
+        margin: 0 auto !important;
     }
 
     .shortener-card {
         width: 100% !important;
-        max-width: min(560px, calc(100vw - 1.5rem)) !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
+        margin: 1.5rem auto 0 auto !important;
     }
 }
 
