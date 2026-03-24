@@ -48,6 +48,10 @@
     --transition-fast: 150ms ease;
     --transition-normal: 250ms ease;
     --transition-slow: 400ms ease;
+
+    /* Typography */
+    --font-ui: 'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-control: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 /* Force centered, non-fullwidth button inside modal (override media queries) */
@@ -73,7 +77,7 @@ html {
 }
 
 body {
-    font-family: 'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: var(--font-ui);
     background: var(--bg-page);
     color: var(--text-primary);
     line-height: 1.7;
@@ -87,7 +91,7 @@ input,
 select,
 textarea,
 .btn-text {
-    font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: var(--font-control);
 }
 
 /* ========================================
@@ -667,7 +671,7 @@ textarea,
     border: 1px solid #fca5a5;
     border-radius: var(--radius-md);
     color: var(--error);
-    font-family: 'Open Sans', sans-serif;
+    font-family: var(--font-control);
     font-size: 0.9rem;
     font-weight: 600;
     box-shadow: var(--shadow-sm);
@@ -803,6 +807,7 @@ textarea,
 }
 
 .modal-title {
+    font-family: var(--font-ui);
     font-size: 1.75rem;
     font-weight: 700;
     color: var(--text-primary);
@@ -810,6 +815,7 @@ textarea,
 }
 
 .modal-description {
+    font-family: var(--font-ui);
     color: var(--text-secondary);
     font-size: 1.05rem;
     margin-bottom: 1.5rem;
@@ -823,6 +829,7 @@ textarea,
 }
 
 .result-input {
+    font-family: var(--font-control);
     flex: 1;
     padding: 0.75rem 0.85rem;
     font-size: 0.9rem;
@@ -871,7 +878,7 @@ textarea,
 }
 
 .qr-label {
-    font-family: 'Open Sans', sans-serif;
+    font-family: var(--font-control);
     font-size: 0.875rem;
     font-weight: 500;
     color: var(--text-muted);
@@ -902,13 +909,14 @@ textarea,
 }
 
 .expires-info {
-    font-family: 'Open Sans', sans-serif;
+    font-family: var(--font-control);
     font-size: 0.875rem;
     color: var(--text-muted);
 }
 
 /* Secondary Button */
 .btn-secondary {
+    font-family: var(--font-control);
     width: 100%;
     padding: 1rem 1.5rem;
     font-size: 1rem;
