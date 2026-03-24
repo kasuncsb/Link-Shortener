@@ -269,6 +269,12 @@ async def health_check():
     return _health_payload()
 
 
+@app.get("/api/live")
+async def liveness_check():
+    """Lightweight liveness endpoint for container health checks."""
+    return {"status": "ok"}
+
+
 @app.get("/{code}")
 async def redirect_to_url(
     code: str,

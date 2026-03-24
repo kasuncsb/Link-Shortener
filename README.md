@@ -24,7 +24,9 @@ docker run --rm -p 127.0.0.1:17320:17320 -p 127.0.0.1:17321:17321 --env-file bac
 
 Open `http://localhost:17320`.
 
-Health endpoint: `http://localhost:17321/api/health` (also available at `/health`).
+Health endpoints:
+- Liveness (container): `http://localhost:17321/api/live`
+- Readiness/diagnostics: `http://localhost:17321/api/health` (also available at `/health`)
 
 If MySQL/Redis run on the Docker host (not in this container), set:
 

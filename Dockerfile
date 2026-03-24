@@ -29,7 +29,7 @@ WORKDIR /app/backend
 EXPOSE 17320 17321
 
 # Health check every 30 seconds against backend health endpoint
-HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
-    CMD curl -fsS http://localhost:17321/api/health >/dev/null || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -fsS --max-time 4 http://127.0.0.1:17321/api/live >/dev/null || exit 1
 
 CMD ["bash", "/app/start.sh"]
