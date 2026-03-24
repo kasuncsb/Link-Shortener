@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Depends
-from fastapi.responses import RedirectResponse, JSONResponse, FileResponse
+from fastapi.responses import RedirectResponse, JSONResponse, FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 import logging
 import os
 from pathlib import Path
+from html import escape
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.exceptions import RequestValidationError
 
@@ -17,6 +18,7 @@ from .services import LinkService
 from .redis_client import RedisService
 from .models import Link
 from .utils import utc_now, normalize_utc
+from .meta_fetcher import fetch_meta
 import asyncio
 
 # Configure logging
@@ -43,6 +45,34 @@ def _is_preview_bot(request: Request) -> bool:
     if "preview" in purpose or "preview" in x_purpose or "preview" in sec_purpose:
         return True
     return any(hint in user_agent for hint in PREVIEW_BOT_HINTS)
+
+
+def _preview_html(short_url: str, destination_url: str, meta: dict) -> str:
+    title = escape(str(meta.get("title") or "Link preview"))
+    description = escape(str(meta.get("description") or "Open this link"))
+    image = str(meta.get("image") or f"{get_env('BASE_URL').rstrip('/')}/images/og-banner.jpg")
+    image_tag = f'<meta property="og:image" content="{escape(image)}">' if image else ""
+    image_secure_tag = f'<meta property="og:image:secure_url" content="{escape(image)}">' if image and image.startswith("https://") else ""
+    twitter_image_tag = f'<meta name="twitter:image" content="{escape(image)}">' if image else ""
+
+    return (
+        "<!doctype html><html><head>"
+        '<meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        f"<title>{title}</title>"
+        f'<meta property="og:title" content="{title}">'
+        f'<meta property="og:description" content="{description}">'
+        f'<meta property="og:url" content="{escape(short_url)}">'
+        '<meta property="og:type" content="website">'
+        f'{image_tag}'
+        f'{image_secure_tag}'
+        f'<meta name="twitter:title" content="{title}">'
+        f'<meta name="twitter:description" content="{description}">'
+        f'<meta name="twitter:card" content="summary_large_image">'
+        f'{twitter_image_tag}'
+        f'<link rel="canonical" href="{escape(destination_url)}">'
+        "</head><body></body></html>"
+    )
 
 def _rebuild_redis_cache_from_db() -> None:
     """Rebuild Redis cache from DB without blocking request serving."""
@@ -276,8 +306,35 @@ async def redirect_to_url(
     
     force_preview = request.query_params.get("preview") == "1"
     if force_preview or _is_preview_bot(request):
-        # Simpler and more reliable: let destination handle preview metadata natively.
-        return RedirectResponse(url=url, status_code=302)
+        fallback_meta = {
+            "title": get_env("APP_NAME"),
+            "description": "TL;DR for your links. Get to the point. Fast & Secure.",
+            "image": f"{get_env('BASE_URL').rstrip('/')}/images/og-banner.jpg",
+            "domain": get_env("BASE_URL").replace("https://", "").replace("http://", ""),
+        }
+        try:
+            meta = await fetch_meta(url)
+        except Exception:
+            meta = None
+
+        # If destination has useful preview metadata, redirect to destination for native unfurl.
+        has_destination_preview = bool(
+            meta
+            and meta.get("fetched_url")
+            and (
+                (meta.get("image") and str(meta.get("image")).strip())
+                or (meta.get("description") and str(meta.get("description")).strip())
+            )
+        )
+        if has_destination_preview:
+            return RedirectResponse(url=url, status_code=302)
+
+        # Otherwise serve service fallback preview.
+        short_url = f"{get_env('BASE_URL').rstrip('/')}/{code_lower}"
+        return HTMLResponse(
+            content=_preview_html(short_url=short_url, destination_url=url, meta=fallback_meta),
+            status_code=200
+        )
 
     # 301 for permanent links (better for SEO); 302 for expiring links
     # so browsers don't cache the redirect past the expiry date.
